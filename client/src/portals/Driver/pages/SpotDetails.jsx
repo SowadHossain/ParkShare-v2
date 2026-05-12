@@ -41,15 +41,36 @@ export default function DriverSpotDetails() {
       </div>
 
       {/* Photo grid */}
-      <div className="grid grid-cols-3 grid-rows-2 gap-2 h-72 md:h-96 mb-8 rounded-2xl overflow-hidden">
-        <div className={`col-span-2 row-span-2 bg-gradient-to-br ${GRADIENTS[0]}`} />
-        <div className={`bg-gradient-to-br ${GRADIENTS[1]}`} />
-        <div className={`bg-gradient-to-br ${GRADIENTS[2]} relative`}>
-          <button className="absolute right-2 bottom-2 px-3 py-1.5 bg-white rounded-full text-xs font-semibold shadow-sm">
-            View all →
-          </button>
+      {spot.images?.length > 0 ? (
+        <div className="grid grid-cols-3 grid-rows-2 gap-2 h-64 md:h-96 mb-8 rounded-2xl overflow-hidden">
+          <div className="col-span-2 row-span-2 bg-paper2 overflow-hidden">
+            <img src={spot.images[0]} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="bg-paper2 overflow-hidden">
+            {spot.images[1]
+              ? <img src={spot.images[1]} alt="" className="w-full h-full object-cover" />
+              : <div className={`w-full h-full bg-gradient-to-br ${GRADIENTS[1]}`} />
+            }
+          </div>
+          <div className="bg-paper2 overflow-hidden relative">
+            {spot.images[2]
+              ? <img src={spot.images[2]} alt="" className="w-full h-full object-cover" />
+              : <div className={`w-full h-full bg-gradient-to-br ${GRADIENTS[2]}`} />
+            }
+            {spot.images?.length > 3 && (
+              <div className="absolute inset-0 bg-ink/50 flex items-center justify-center">
+                <span className="text-paper font-semibold text-sm">+{spot.images.length - 3} more</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-3 grid-rows-2 gap-2 h-64 md:h-96 mb-8 rounded-2xl overflow-hidden">
+          <div className={`col-span-2 row-span-2 bg-gradient-to-br ${GRADIENTS[0]}`} />
+          <div className={`bg-gradient-to-br ${GRADIENTS[1]}`} />
+          <div className={`bg-gradient-to-br ${GRADIENTS[2]}`} />
+        </div>
+      )}
 
       <div className="grid md:grid-cols-[1fr_340px] gap-10 items-start">
         <div>

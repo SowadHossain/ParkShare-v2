@@ -1,0 +1,13 @@
+{
+  "name": "ParkShare — The Driveway Marketplace",
+  "short_name": "ParkShare",
+  "description": "Book residential driveway parking by the hour.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F4EE",
+  "theme_color": "#0E0E0C",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

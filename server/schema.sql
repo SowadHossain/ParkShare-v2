@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255),
   phone       VARCHAR(30),
   bio         TEXT,
+  avatar_url  TEXT,
   role        VARCHAR(20)   NOT NULL DEFAULT 'driver' CHECK (role IN ('driver','host','admin')),
   google_id   VARCHAR(120)  UNIQUE,
   onboarded   BOOLEAN       NOT NULL DEFAULT FALSE,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS spots (
   available_from TIME,
   available_to   TIME,
   is_active      BOOLEAN       NOT NULL DEFAULT TRUE,
+  images         TEXT[]        NOT NULL DEFAULT ARRAY[]::TEXT[],
   created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 

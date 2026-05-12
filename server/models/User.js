@@ -26,7 +26,7 @@ const User = {
   },
 
   async update(id, fields) {
-    const allowed = ['name', 'phone', 'bio', 'onboarded']
+    const allowed = ['name', 'phone', 'bio', 'onboarded', 'avatar_url']
     const sets = []
     const vals = []
     let i = 1

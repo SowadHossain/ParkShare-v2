@@ -16,18 +16,28 @@ export default function AddSpotReview() {
     setLoading(true)
     setError('')
     try {
-      await axios.post(`${API}/spots`, {
-        title: data.title,
-        description: data.description,
-        address: data.address || 'TBD',
-        latitude: data.lat || 23.7937,
-        longitude: data.lng || 90.4066,
-        hourlyPrice: data.hourlyPrice || 3.00,
-        vehicleSize: data.vehicleSize || 'sedan',
-        rules: data.rules || '',
+      const { data: spot } = await axios.post(`${API}/spots`, {
+        title:         data.title,
+        description:   data.description,
+        address:       data.address || 'TBD',
+        latitude:      data.lat || 23.7937,
+        longitude:     data.lng || 90.4066,
+        hourlyPrice:   data.hourlyPrice || 3.00,
+        vehicleSize:   data.vehicleSize || 'sedan',
+        rules:         data.rules || '',
         availableFrom: data.availableFrom || null,
-        availableTo: data.availableTo || null,
+        availableTo:   data.availableTo || null,
       })
+
+      // Upload images if host added any
+      const imageFiles = window.__spotImages
+      if (imageFiles?.length) {
+        const form = new FormData()
+        imageFiles.forEach(f => form.append('images', f))
+        await axios.post(`${API}/spots/${spot.id}/images`, form).catch(() => {})
+        window.__spotImages = null
+      }
+
       sessionStorage.removeItem('addSpot')
       navigate('/host/spots/new/published')
     } catch (err) {
@@ -37,22 +47,25 @@ export default function AddSpotReview() {
     }
   }
 
+  const imageCount = data.imageCount || 0
+
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="flex items-center justify-between px-8 py-4 border-b border-black/10 bg-paper">
+      <div className="flex items-center justify-between px-5 md:px-8 py-4 border-b border-black/10 bg-paper">
         <Stepper steps={STEPS} current={3} />
         <button onClick={() => navigate('/host/spots')} className="font-mono text-xs text-muted hover:text-ink tracking-wider">SAVE & EXIT</button>
       </div>
-      <div className="max-w-md mx-auto px-8 py-10 w-full">
+      <div className="max-w-md mx-auto px-5 md:px-8 py-10 w-full">
         <div className="font-mono text-xs text-muted tracking-wider mb-2">STEP 4 · FINAL REVIEW</div>
         <h1 className="text-3xl font-bold tracking-tight mb-8">Looks good?</h1>
         <div className="bg-white border border-black/10 rounded-2xl p-5 mb-6 space-y-3 text-sm">
           {[
-            ['Title', data.title || '—'],
-            ['Address', data.address || '—'],
-            ['Vehicle', data.vehicleSize || 'sedan'],
-            ['Price', `$${parseFloat(data.hourlyPrice || 3).toFixed(2)}/hr`],
+            ['Title',     data.title || '—'],
+            ['Address',   data.address || '—'],
+            ['Vehicle',   data.vehicleSize || 'sedan'],
+            ['Price',     `$${parseFloat(data.hourlyPrice || 3).toFixed(2)}/hr`],
             ['Available', data.availableFrom ? `${data.availableFrom} – ${data.availableTo}` : 'Not set'],
+            ['Photos',    imageCount > 0 ? `${imageCount} photo${imageCount > 1 ? 's' : ''}` : 'None added'],
           ].map(([k, v]) => (
             <div key={k} className="flex justify-between">
               <span className="text-muted">{k}</span>
@@ -63,7 +76,9 @@ export default function AddSpotReview() {
         {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-xl text-sm">{error}</div>}
         <div className="flex gap-3">
           <button onClick={() => navigate('/host/spots/new/pricing')}
-            className="px-5 py-3 bg-white border border-black/10 rounded-full text-sm font-semibold text-muted hover:bg-paper2 transition-colors">Back</button>
+            className="px-5 py-3 bg-white border border-black/10 rounded-full text-sm font-semibold text-muted hover:bg-paper2 transition-colors">
+            Back
+          </button>
           <button onClick={handlePublish} disabled={loading}
             className="flex-1 py-3 bg-lime text-ink rounded-full text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
             {loading ? 'Publishing…' : 'Publish listing →'}

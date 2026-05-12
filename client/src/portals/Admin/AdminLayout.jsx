@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useEffect } from 'react'
 
@@ -16,6 +16,8 @@ export default function AdminLayout() {
   useEffect(() => {
     if (!loading && (!user || user.role !== 'admin')) navigate('/login', { replace: true })
   }, [user, loading, navigate])
+
+  const { key } = useLocation()
 
   if (loading || !user) return null
 
@@ -47,7 +49,9 @@ export default function AdminLayout() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto">
-        <Outlet />
+        <div key={key} className="page-transition">
+          <Outlet />
+        </div>
       </main>
     </div>
   )

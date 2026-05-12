@@ -5,7 +5,6 @@ export default function HostProfile() {
   const { user } = useAuth()
 
   const fields = [
-    ['Name', user?.name],
     ['Email', user?.email],
     ['Phone', user?.phone || 'Not set'],
     ['Role', 'Host'],
@@ -13,13 +12,16 @@ export default function HostProfile() {
   ]
 
   return (
-    <div className="p-8 max-w-lg">
+    <div className="p-5 md:p-8 max-w-lg">
       <div className="font-mono text-xs text-muted tracking-wider mb-1">PROFILE</div>
       <h1 className="text-3xl font-bold tracking-tight mb-6">Your account.</h1>
 
       <div className="flex items-center gap-5 mb-8">
-        <div className="w-16 h-16 rounded-full bg-ink text-paper flex items-center justify-center text-2xl font-bold">
-          {user?.name?.[0]?.toUpperCase()}
+        <div className="w-16 h-16 rounded-full overflow-hidden bg-paper2 flex items-center justify-center flex-shrink-0">
+          {user?.avatar_url
+            ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+            : <span className="text-2xl font-bold">{user?.name?.[0]?.toUpperCase()}</span>
+          }
         </div>
         <div>
           <div className="font-semibold text-lg">{user?.name}</div>

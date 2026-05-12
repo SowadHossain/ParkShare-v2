@@ -4,6 +4,9 @@ const cors = require('cors')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const passport = require('./config/passport')
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
 
 const pool = require('./config/db')
 const User = require('./models/User')
@@ -16,10 +19,40 @@ const requireRole = require('./middleware/roleMiddleware')
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
+// ── Upload directories ─────────────────────────────────────────────────────
+;['uploads/avatars', 'uploads/spots'].forEach(d =>
+  fs.mkdirSync(path.join(__dirname, d), { recursive: true })
+)
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, req.uploadDir || 'uploads')),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`)
+  },
+})
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) =>
+    file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Images only')),
+})
+
+// ── DB migrations for new columns ──────────────────────────────────────────
+;(async () => {
+  try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE spots ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT ARRAY[]::TEXT[];
+    `)
+  } catch (e) { /* columns may already exist */ }
+})()
+
 const app = express()
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
 app.use(express.json())
 app.use(passport.initialize())
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 const sign = (user) =>
   jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' })
@@ -45,7 +78,8 @@ app.post('/api/auth/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10)
     const user = await User.create({ name, email, passwordHash, phone, role: role || 'driver' })
     const token = sign(user)
-    res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, onboarded: user.onboarded } })
+    const { password_hash: _ph, ...safeUser } = user
+    res.status(201).json({ token, user: safeUser })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
@@ -61,7 +95,8 @@ app.post('/api/auth/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash)
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' })
     const token = sign(user)
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, onboarded: user.onboarded } })
+    const { password_hash: _ph, ...safeUser } = user
+    res.json({ token, user: safeUser })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
@@ -404,6 +439,34 @@ app.get('/api/transactions/:id', auth, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════
+// UPLOADS
+// ══════════════════════════════════════════════════════════════════════════
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000'
+
+app.post('/api/upload/avatar', auth, (req, res, next) => { req.uploadDir = 'uploads/avatars'; next() },
+  upload.single('avatar'), async (req, res) => {
+    try {
+      const url = `${SERVER_URL}/uploads/avatars/${req.file.filename}`
+      await User.update(req.user.id, { avatar_url: url })
+      res.json({ url })
+    } catch (err) { res.status(500).json({ message: 'Upload failed' }) }
+  }
+)
+
+app.post('/api/spots/:id/images', auth, (req, res, next) => { req.uploadDir = 'uploads/spots'; next() },
+  upload.array('images', 5), async (req, res) => {
+    try {
+      const urls = req.files.map(f => `${SERVER_URL}/uploads/spots/${f.filename}`)
+      const { rows } = await pool.query(
+        'UPDATE spots SET images = images || $1 WHERE id = $2 RETURNING images',
+        [urls, req.params.id]
+      )
+      res.json({ images: rows[0].images })
+    } catch (err) { res.status(500).json({ message: 'Upload failed' }) }
+  }
+)
+
+// ══════════════════════════════════════════════════════════════════════════
 // NOTIFICATIONS
 // ══════════════════════════════════════════════════════════════════════════
 app.get('/api/notifications', auth, async (req, res) => {
@@ -458,6 +521,7 @@ app.post('/api/payments/create-intent', auth, async (req, res) => {
     const intent = await stripe.paymentIntents.create({
       amount: Math.round(booking.total_price * 100),
       currency: 'usd',
+      payment_method_types: ['card'],
       metadata: { bookingId: String(bookingId) },
     })
     res.json({ clientSecret: intent.client_secret })
@@ -472,6 +536,11 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
     const { bookingId, stripePaymentId } = req.body
     const booking = await Booking.findById(bookingId)
     if (!booking) return res.status(404).json({ message: 'Not found' })
+
+    const intent = await stripe.paymentIntents.retrieve(stripePaymentId)
+    if (intent.status !== 'succeeded') {
+      return res.status(400).json({ message: 'Payment not completed' })
+    }
 
     await Booking.updateStatus(bookingId, 'paid', stripePaymentId)
     await Transaction.create({ bookingId, amount: booking.total_price, stripeId: stripePaymentId })
@@ -490,17 +559,23 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 app.get('/api/admin/stats', auth, requireRole('admin'), async (req, res) => {
   try {
-    const [users, spots, bookings, revenue] = await Promise.all([
+    const [users, allSpots, activeSpots, allBookings, pendingBookings, completedBookings, revenue] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM users'),
+      pool.query('SELECT COUNT(*) FROM spots'),
       pool.query('SELECT COUNT(*) FROM spots WHERE is_active = true'),
       pool.query('SELECT COUNT(*) FROM bookings'),
+      pool.query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'"),
+      pool.query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'"),
       pool.query("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE status = 'paid'"),
     ])
     res.json({
-      totalUsers: parseInt(users.rows[0].count),
-      activeSpots: parseInt(spots.rows[0].count),
-      totalBookings: parseInt(bookings.rows[0].count),
-      totalRevenue: parseFloat(revenue.rows[0].total),
+      total_users: parseInt(users.rows[0].count),
+      total_spots: parseInt(allSpots.rows[0].count),
+      active_spots: parseInt(activeSpots.rows[0].count),
+      total_bookings: parseInt(allBookings.rows[0].count),
+      pending_bookings: parseInt(pendingBookings.rows[0].count),
+      completed_bookings: parseInt(completedBookings.rows[0].count),
+      total_revenue: parseFloat(revenue.rows[0].total),
     })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })

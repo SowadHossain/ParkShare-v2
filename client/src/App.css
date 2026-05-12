@@ -9,6 +9,7 @@
     background-color: #F6F4EE;
     color: #0E0E0C;
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
   }
   .font-mono, code, pre {
     font-family: 'JetBrains Mono', monospace;
@@ -18,4 +19,40 @@
 @layer utilities {
   .hairline { border-color: rgba(14,14,12,0.10); }
   .text-hairline { color: rgba(14,14,12,0.10); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-top { padding-top: env(safe-area-inset-top); }
+}
+
+/* Page transition */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-transition {
+  animation: pageIn 0.22s ease-out;
+}
+
+/* Typewriter cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.typewriter-cursor {
+  animation: blink 0.7s step-end infinite;
+}
+
+/* Greeting overlay fade */
+@keyframes greetingFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.greeting-out {
+  animation: greetingFadeOut 0.5s ease-out forwards;
+}
+
+/* Mobile bottom safe area */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

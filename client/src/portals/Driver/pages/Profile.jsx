@@ -6,23 +6,25 @@ export default function DriverProfile() {
   if (!user) return null
 
   return (
-    <div className="max-w-lg mx-auto px-6 py-10">
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <div className="font-mono text-xs text-muted tracking-wider mb-2">DRIVER PROFILE</div>
-          <h1 className="text-3xl font-bold tracking-tight">{user.name}</h1>
-          <div className="text-muted text-sm mt-1">{user.email}</div>
+    <div className="max-w-lg mx-auto px-5 py-8">
+      <div className="font-mono text-xs text-muted tracking-wider mb-1">DRIVER PROFILE</div>
+      <h1 className="text-3xl font-bold tracking-tight mb-8">Your account.</h1>
+
+      {/* Avatar */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="w-16 h-16 rounded-full overflow-hidden bg-paper2 flex items-center justify-center flex-shrink-0">
+          {user.avatar_url
+            ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+            : <span className="text-2xl font-bold">{user.name?.charAt(0)?.toUpperCase()}</span>
+          }
         </div>
-        <div className="w-16 h-16 rounded-full bg-paper2 flex items-center justify-center text-2xl font-bold">
-          {user.name?.charAt(0)?.toUpperCase()}
+        <div>
+          <div className="font-semibold text-lg">{user.name}</div>
+          <div className="text-sm text-muted">{user.email}</div>
         </div>
       </div>
 
       <div className="bg-white border border-black/10 rounded-2xl p-5 mb-4 space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted">Email</span>
-          <span className="font-medium">{user.email}</span>
-        </div>
         {user.phone && (
           <div className="flex justify-between">
             <span className="text-muted">Phone</span>
@@ -41,9 +43,16 @@ export default function DriverProfile() {
         </div>
       </div>
 
-      <Link to="/driver/profile/edit" className="w-full py-3.5 border border-black/10 rounded-full text-sm font-semibold text-center block hover:bg-paper2 transition-colors">
-        Edit profile →
-      </Link>
+      <div className="flex flex-col gap-2">
+        <Link to="/driver/profile/edit"
+          className="w-full py-3.5 border border-black/10 rounded-full text-sm font-semibold text-center block hover:bg-paper2 transition-colors">
+          Edit profile →
+        </Link>
+        <Link to="/driver/settings"
+          className="w-full py-3.5 border border-black/10 rounded-full text-sm font-semibold text-center block hover:bg-paper2 transition-colors text-muted">
+          Settings
+        </Link>
+      </div>
     </div>
   )
 }

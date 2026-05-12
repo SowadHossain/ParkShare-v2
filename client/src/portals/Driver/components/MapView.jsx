@@ -1,4 +1,4 @@
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
+import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -7,18 +7,15 @@ const MAP_STYLE = [
   { featureType: 'road', stylers: [{ lightness: 20 }] },
 ]
 
-export default function MapView({ spots = [], center, onCenterChange }) {
+export default function MapView({ spots = [], center, onCenterChange, isLoaded }) {
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-  })
 
   const mapCenter = center || { lat: 23.7937, lng: 90.4066 }
 
   if (!isLoaded) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-paper2">
+      <div className="w-full h-full flex items-center justify-center bg-paper2">
         <div className="font-mono text-xs text-muted">Loading map…</div>
       </div>
     )
@@ -29,7 +26,14 @@ export default function MapView({ spots = [], center, onCenterChange }) {
       mapContainerStyle={{ width: '100%', height: '100%' }}
       center={mapCenter}
       zoom={15}
-      options={{ styles: MAP_STYLE, disableDefaultUI: false, zoomControl: true }}
+      options={{
+        styles: MAP_STYLE,
+        disableDefaultUI: false,
+        zoomControl: true,
+        fullscreenControl: false,
+        streetViewControl: false,
+        mapTypeControl: false,
+      }}
       onDragEnd={map => {
         const c = map.getCenter()
         if (c && onCenterChange) onCenterChange({ lat: c.lat(), lng: c.lng() })

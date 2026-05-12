@@ -4,3 +4,4 @@
 *.log
 .claude
 client/.env
+server/.env

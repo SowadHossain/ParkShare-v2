@@ -5,11 +5,21 @@ import { useAuth } from '../../../context/AuthContext.jsx'
 import { API } from '../../../context/AuthContext.jsx'
 import StatusBadge from '../../../components/UI/StatusBadge.jsx'
 import Loader from '../../../components/UI/Loader.jsx'
+import GreetingBanner from '../../../components/UI/GreetingBanner.jsx'
 
 export default function HostDashboard() {
   const { user } = useAuth()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showGreeting, setShowGreeting] = useState(false)
+
+  useEffect(() => {
+    const key = `greeted_${user?.id}`
+    if (user && !sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1')
+      setShowGreeting(true)
+    }
+  }, [user?.id])
 
   useEffect(() => {
     if (!user) return
@@ -29,6 +39,7 @@ export default function HostDashboard() {
 
   return (
     <div className="p-8">
+      {showGreeting && <GreetingBanner name={user?.name?.split(' ')[0]} onDone={() => setShowGreeting(false)} />}
       <div className="flex items-end justify-between mb-8">
         <div>
           <div className="font-mono text-xs text-muted tracking-wider mb-1">

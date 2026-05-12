@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { API } from '../../../context/AuthContext.jsx'
+import { API, useAuth } from '../../../context/AuthContext.jsx'
 import StatCard from '../components/StatCard.jsx'
 import Loader from '../../../components/UI/Loader.jsx'
+import GreetingBanner from '../../../components/UI/GreetingBanner.jsx'
 
 export default function AdminDashboard() {
+  const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showGreeting, setShowGreeting] = useState(false)
+
+  useEffect(() => {
+    const key = `greeted_${user?.id}`
+    if (user && !sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1')
+      setShowGreeting(true)
+    }
+  }, [user?.id])
 
   useEffect(() => {
     axios.get(`${API}/admin/stats`)
@@ -19,6 +30,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-8">
+      {showGreeting && <GreetingBanner name={user?.name?.split(' ')[0]} onDone={() => setShowGreeting(false)} />}
       <div className="font-mono text-xs text-muted tracking-wider mb-1">ADMIN</div>
       <h1 className="text-3xl font-bold tracking-tight mb-8">Dashboard.</h1>
 

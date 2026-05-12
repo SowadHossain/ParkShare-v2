@@ -18,7 +18,12 @@ export default function SpotCard({ spot, index = 0, highlighted = false }) {
   return (
     <Link to={`/driver/spots/${spot.id}`}
       className={`flex gap-3 p-3.5 rounded-2xl border transition-all hover:shadow-md ${highlighted ? 'border-ink bg-paper shadow-sm' : 'border-black/10 bg-white hover:border-black/20'}`}>
-      <div className={`w-24 h-24 rounded-xl flex-shrink-0 bg-gradient-to-br ${GRADIENTS[index % GRADIENTS.length]}`} />
+      <div className="w-24 h-24 rounded-xl flex-shrink-0 overflow-hidden bg-paper2">
+        {spot.images?.[0]
+          ? <img src={spot.images[0]} alt="" className="w-full h-full object-cover" />
+          : <div className={`w-full h-full bg-gradient-to-br ${GRADIENTS[index % GRADIENTS.length]}`} />
+        }
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="text-sm font-semibold leading-snug">{spot.title}</div>
