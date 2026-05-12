@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ParkShare — Web UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#E8E4D7; font-family:"DM Sans", system-ui, sans-serif; color:#0E0E0C; }
+  #root { width:100vw; height:100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+// Inline the shared palette (web file is self-sufficient — doesn't depend on mobile screens)
+window.PSColors = { INK:'#0E0E0C', PAPER:'#F6F4EE', PAPER2:'#E8E4D7', LIME:'#C8FF3D', MUTED:'#8A8275', HAIRLINE:'rgba(14,14,12,0.10)' };
+</script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="browser-window.jsx"></script>
+<script type="text/babel" src="web-screens.jsx"></script>
+<script type="text/babel" src="web-screens2.jsx"></script>
+
+<script type="text/babel">
+const W = 1440, H = 900;
+
+function Win({url='parkshare.app', tabs, children}) {
+  const tbs = tabs || [{title:'ParkShare — '+url.split('/').pop(), active:true}];
+  return <ChromeWindow tabs={tbs} activeIndex={0} url={'parkshare.app/'+url.replace(/^\//,'')} width={W} height={H}>{children}</ChromeWindow>;
+}
+
+function App() {
+  return (
+    <DesignCanvas
+      title="ParkShare · Web"
+      subtitle="Desktop responsive web app · React + Tailwind reference designs · ink/paper/lime · DM Sans + JetBrains Mono"
+    >
+      <DCSection id="public" title="Public site" subtitle="Marketing surface — landing, auth, content">
+        <DCArtboard id="w-landing" label="W1 · Landing / home" width={W} height={H}><Win url=""><WebLanding/></Win></DCArtboard>
+        <DCArtboard id="w-login"   label="W2 · Sign in" width={W} height={H}><Win url="login"><WebLogin/></Win></DCArtboard>
+        <DCArtboard id="w-register" label="W9 · Register / role pick" width={W} height={H}><Win url="register"><WebRegister/></Win></DCArtboard>
+        <DCArtboard id="w-how"     label="W10 · How it works" width={W} height={H}><Win url="how-it-works"><WebHowItWorks/></Win></DCArtboard>
+        <DCArtboard id="w-404"     label="W11 · 404 not found" width={W} height={H}><Win url="missing"><Web404/></Win></DCArtboard>
+      </DCSection>
+
+      <DCSection id="driver-web" title="Driver web" subtitle="Welcome → dashboard → search → book → pay → manage">
+        <DCArtboard id="w-dwelcome" label="W12 · Driver welcome / onboard" width={W} height={H}><Win url="driver/welcome"><WebDriverWelcome/></Win></DCArtboard>
+        <DCArtboard id="w-ddash"   label="W13 · Driver dashboard" width={W} height={H}><Win url="driver"><WebDriverDash/></Win></DCArtboard>
+        <DCArtboard id="w-search"  label="W3 · Search spots" width={W} height={H}><Win url="driver/search"><WebSearch/></Win></DCArtboard>
+        <DCArtboard id="w-spot"    label="W4 · Spot details" width={W} height={H}><Win url="driver/spots/42"><WebSpotDetails/></Win></DCArtboard>
+        <DCArtboard id="w-bform"   label="W14 · Booking · pick time" width={W} height={H}><Win url="driver/spots/42/book"><WebBookingForm/></Win></DCArtboard>
+        <DCArtboard id="w-review"  label="W15 · Checkout · review" width={W} height={H}><Win url="driver/checkout/review"><WebCheckoutReview/></Win></DCArtboard>
+        <DCArtboard id="w-pay"     label="W16 · Payment (Stripe)" width={W} height={H}><Win url="driver/checkout/pay"><WebPayment/></Win></DCArtboard>
+        <DCArtboard id="w-paysucc" label="W17 · Payment confirmed" width={W} height={H}><Win url="driver/checkout/success"><WebPaySuccess/></Win></DCArtboard>
+        <DCArtboard id="w-payfail" label="W18 · Payment failed" width={W} height={H}><Win url="driver/checkout/failed"><WebPayFailed/></Win></DCArtboard>
+        <DCArtboard id="w-bhist"   label="W19 · Booking history" width={W} height={H}><Win url="driver/bookings"><WebBookingHistory/></Win></DCArtboard>
+        <DCArtboard id="w-bdet"    label="W20 · Booking details / active" width={W} height={H}><Win url="driver/bookings/PK-4F2A9"><WebBookingDetails/></Win></DCArtboard>
+        <DCArtboard id="w-cancel"  label="W21 · Cancel booking" width={W} height={H}><Win url="driver/bookings/PK-4F2A9/cancel"><WebCancel/></Win></DCArtboard>
+        <DCArtboard id="w-rev"     label="W22 · Write review" width={W} height={H}><Win url="driver/bookings/PK-4F1E8/review"><WebWriteReview/></Win></DCArtboard>
+        <DCArtboard id="w-notif"   label="W23 · Notifications" width={W} height={H}><Win url="driver/notifications"><WebNotifications/></Win></DCArtboard>
+        <DCArtboard id="w-prof"    label="W24 · Profile" width={W} height={H}><Win url="driver/profile"><WebProfile/></Win></DCArtboard>
+      </DCSection>
+
+      <DCSection id="host-web" title="Host web" subtitle="Welcome → list spots → manage → bookings → earnings">
+        <DCArtboard id="w-hwelcome" label="W25 · Host welcome" width={W} height={H}><Win url="host/welcome"><WebHostWelcome/></Win></DCArtboard>
+        <DCArtboard id="w-host"    label="W5 · Host dashboard" width={W} height={H}><Win url="host"><WebHostDash/></Win></DCArtboard>
+        <DCArtboard id="w-myspots" label="W26 · My spots" width={W} height={H}><Win url="host/spots"><WebMySpots/></Win></DCArtboard>
+        <DCArtboard id="w-addspot" label="W7 · Add spot · location" width={W} height={H}><Win url="host/spots/add/location"><WebAddSpot/></Win></DCArtboard>
+        <DCArtboard id="w-addsp2" label="W27 · Add spot · details" width={W} height={H}><Win url="host/spots/add/details"><WebAddSpotDetails/></Win></DCArtboard>
+        <DCArtboard id="w-addsp3" label="W28 · Add spot · pricing" width={W} height={H}><Win url="host/spots/add/pricing"><WebAddSpotPricing/></Win></DCArtboard>
+        <DCArtboard id="w-published" label="W29 · Spot published 🎉" width={W} height={H}><Win url="host/spots/12/published"><WebSpotPublished/></Win></DCArtboard>
+        <DCArtboard id="w-hbook"  label="W30 · Host bookings inbox" width={W} height={H}><Win url="host/bookings"><WebHostBookings/></Win></DCArtboard>
+        <DCArtboard id="w-earn"    label="W6 · Earnings" width={W} height={H}><Win url="host/earnings"><WebEarnings/></Win></DCArtboard>
+      </DCSection>
+
+      <DCSection id="admin-web" title="Admin web" subtitle="Platform moderation">
+        <DCArtboard id="w-admin"   label="W8 · Admin overview" width={W} height={H}><Win url="admin"><WebAdmin/></Win></DCArtboard>
+        <DCArtboard id="w-amod"   label="W31 · Admin · moderate users" width={W} height={H}><Win url="admin/users"><WebAdminMod/></Win></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ParkShare — Mobile UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#E8E4D7; font-family:"DM Sans", system-ui, sans-serif; color:#0E0E0C; }
+  #root { width:100vw; height:100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="screens2.jsx"></script>
+<script type="text/babel" src="screens3.jsx"></script>
+<script type="text/babel" src="screens4.jsx"></script>
+<script type="text/babel" src="screens5.jsx"></script>
+<script type="text/babel" src="screens6.jsx"></script>
+
+<script type="text/babel">
+const W = 402, H = 874;
+
+function Frame({children, dark=false}) {
+  return <IOSDevice width={W} height={H} dark={dark}>{children}</IOSDevice>;
+}
+
+function App() {
+  return (
+    <DesignCanvas
+      title="ParkShare"
+      subtitle="Mobile-first ride-share-inspired marketplace for driveway parking · DM Sans + JetBrains Mono · ink/paper/lime"
+    >
+      <DCSection id="onboarding" title="Onboarding & auth" subtitle="First-run experience for both roles">
+        <DCArtboard id="00a-welcome"  label="A · Driver welcome" width={W} height={H}><Frame dark><ScreenDriverWelcome/></Frame></DCArtboard>
+        <DCArtboard id="00b-login"    label="B · Sign in" width={W} height={H}><Frame><ScreenLogin/></Frame></DCArtboard>
+        <DCArtboard id="00c-register" label="C · Pick role" width={W} height={H}><Frame><ScreenRegister/></Frame></DCArtboard>
+      </DCSection>
+
+      <DCSection id="driver-flow" title="Driver flow" subtitle="Home → search → spot → book → review → pay → success → active → history">
+        <DCArtboard id="01-landing" label="01 · Landing" width={W} height={H}><Frame dark><ScreenLanding/></Frame></DCArtboard>
+        <DCArtboard id="02-home"    label="02 · Driver home" width={W} height={H}><Frame><ScreenDriverHome/></Frame></DCArtboard>
+        <DCArtboard id="03-search"  label="03 · Search spots" width={W} height={H}><Frame><ScreenSearch/></Frame></DCArtboard>
+        <DCArtboard id="04-details" label="04 · Spot details" width={W} height={H}><Frame><ScreenSpotDetails/></Frame></DCArtboard>
+        <DCArtboard id="05-booking" label="05 · Pick time" width={W} height={H}><Frame><ScreenBooking/></Frame></DCArtboard>
+        <DCArtboard id="06-review"  label="06 · Review" width={W} height={H}><Frame><ScreenCheckoutReview/></Frame></DCArtboard>
+        <DCArtboard id="07-payment" label="07 · Payment" width={W} height={H}><Frame><ScreenPayment/></Frame></DCArtboard>
+        <DCArtboard id="08-success" label="08 · Confirmed" width={W} height={H}><Frame dark><ScreenSuccess/></Frame></DCArtboard>
+        <DCArtboard id="09-active"  label="09 · Active booking" width={W} height={H}><Frame><ScreenActive/></Frame></DCArtboard>
+        <DCArtboard id="10-history" label="10 · Bookings" width={W} height={H}><Frame><ScreenHistory/></Frame></DCArtboard>
+      </DCSection>
+
+      <DCSection id="driver-utility" title="Driver utility" subtitle="Cancel, review, edge cases & account">
+        <DCArtboard id="11-cancel"      label="11 · Cancel booking" width={W} height={H}><Frame><ScreenCancel/></Frame></DCArtboard>
+        <DCArtboard id="12-canceldone"  label="12 · Cancel done" width={W} height={H}><Frame><ScreenCancelDone/></Frame></DCArtboard>
+        <DCArtboard id="13-failed"      label="13 · Payment failed" width={W} height={H}><Frame><ScreenPaymentFailed/></Frame></DCArtboard>
+        <DCArtboard id="14-review"      label="14 · Write review" width={W} height={H}><Frame><ScreenWriteReview/></Frame></DCArtboard>
+        <DCArtboard id="15-notifs"      label="15 · Notifications" width={W} height={H}><Frame><ScreenNotifications/></Frame></DCArtboard>
+        <DCArtboard id="16-profile"     label="16 · Profile & settings" width={W} height={H}><Frame><ScreenProfile/></Frame></DCArtboard>
+      </DCSection>
+
+      <DCSection id="host-flow" title="Host flow" subtitle="Earnings, listings & 4-step add-spot onboarding">
+        <DCArtboard id="17-host"     label="17 · Host dashboard" width={W} height={H}><Frame><ScreenHost/></Frame></DCArtboard>
+        <DCArtboard id="18-myspots"  label="18 · My spots" width={W} height={H}><Frame><ScreenMySpots/></Frame></DCArtboard>
+        <DCArtboard id="19-bookings" label="19 · Host bookings" width={W} height={H}><Frame><ScreenHostBookings/></Frame></DCArtboard>
+        <DCArtboard id="20-earnings" label="20 · Earnings detail" width={W} height={H}><Frame dark><ScreenEarnings/></Frame></DCArtboard>
+        <DCArtboard id="21-addspot1" label="21 · Add spot · location" width={W} height={H}><Frame><ScreenAddSpot/></Frame></DCArtboard>
+        <DCArtboard id="22-addspot2" label="22 · Add spot · details" width={W} height={H}><Frame><ScreenAddSpotDetails/></Frame></DCArtboard>
+        <DCArtboard id="23-addspot3" label="23 · Add spot · pricing" width={W} height={H}><Frame><ScreenAddSpotPricing/></Frame></DCArtboard>
+        <DCArtboard id="24-published" label="24 · Spot published" width={W} height={H}><Frame><ScreenSpotPublished/></Frame></DCArtboard>
+      </DCSection>
+
+      <DCSection id="admin" title="Admin" subtitle="Platform moderation surface">
+        <DCArtboard id="25-admin"    label="25 · Admin dashboard" width={W} height={H}><Frame><ScreenAdmin/></Frame></DCArtboard>
+        <DCArtboard id="26-mod"      label="26 · Moderation · users" width={W} height={H}><Frame><ScreenAdminMod/></Frame></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
