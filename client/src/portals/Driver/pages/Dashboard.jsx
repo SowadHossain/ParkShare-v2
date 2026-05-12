@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../../../context/AuthContext.jsx'
-import { API } from '../../../context/AuthContext.jsx'
+import { useAuth, API } from '../../../context/AuthContext.jsx'
 import BookingCard from '../components/BookingCard.jsx'
 import GreetingBanner from '../../../components/UI/GreetingBanner.jsx'
 import Loader from '../../../components/UI/Loader.jsx'
@@ -10,13 +9,13 @@ import EmptyState from '../../../components/UI/EmptyState.jsx'
 
 export default function DriverDashboard() {
   const { user } = useAuth()
-  const [bookings, setBookings] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [bookings, setBookings]     = useState([])
+  const [loading, setLoading]       = useState(true)
   const [showGreeting, setShowGreeting] = useState(false)
 
   useEffect(() => {
     const key = `greeted_${user?.id}`
-    if (!sessionStorage.getItem(key)) {
+    if (user && !sessionStorage.getItem(key)) {
       sessionStorage.setItem(key, '1')
       setShowGreeting(true)
     }
@@ -25,51 +24,86 @@ export default function DriverDashboard() {
   useEffect(() => {
     if (!user) return
     axios.get(`${API}/bookings/driver/${user.id}`)
-      .then(res => setBookings(res.data.slice(0, 3)))
+      .then(res => setBookings(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [user])
 
-  const active = bookings.filter(b => b.status === 'active' || b.status === 'paid')
+  const active    = bookings.filter(b => b.status === 'active')
+  const upcoming  = bookings.filter(b => b.status === 'paid')
+  const firstName = user?.name?.split(' ')[0] || ''
 
   return (
     <>
       {showGreeting && (
-        <GreetingBanner
-          name={user?.name?.split(' ')[0] || 'there'}
-          onDone={() => setShowGreeting(false)}
-        />
+        <GreetingBanner name={firstName} onDone={() => setShowGreeting(false)} />
       )}
 
-      <div className="max-w-2xl mx-auto px-5 py-8">
-        <div className="font-mono text-xs text-muted tracking-widest mb-2">DRIVER DASHBOARD</div>
-        <h1 className="text-3xl font-bold tracking-tight mb-1">
-          {active.length > 0 ? 'You have an active booking.' : `Hey, ${user?.name?.split(' ')[0] || ''}!`}
-        </h1>
-        <p className="text-muted text-sm mb-8">
-          {active.length > 0 ? 'Check your booking details below.' : 'Ready to find parking?'}
-        </p>
+      <div className="max-w-2xl mx-auto px-5 pb-8">
+        {/* Header */}
+        <div className="pt-8 pb-6">
+          <div className="font-mono text-[11px] text-muted tracking-wider mb-1">
+            HELLO, {user?.name?.toUpperCase()}
+          </div>
+          <h1 className="text-[32px] font-bold tracking-tight leading-tight">
+            {active.length > 0 ? "You're parked." : 'Your bookings'}
+          </h1>
+          {active.length > 0 && (
+            <p className="text-muted text-sm mt-1">Active parking session in progress.</p>
+          )}
+        </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-10">
+        {/* Quick actions */}
+        <div className="grid grid-cols-2 gap-3 mb-8">
           <Link to="/driver/search"
-            className="py-4 bg-ink text-paper rounded-2xl font-semibold text-sm text-center hover:bg-ink/90 transition-colors">
+            className="py-[18px] bg-ink text-paper rounded-2xl font-semibold text-[15px] text-center hover:bg-ink/90 active:scale-[0.97] transition-all"
+            style={{ boxShadow: '0 8px 22px rgba(14,14,12,0.18)' }}>
             Find parking →
           </Link>
           <Link to="/driver/bookings"
-            className="py-4 bg-paper2 text-ink rounded-2xl font-semibold text-sm text-center hover:bg-paper2/70 transition-colors">
-            My bookings
+            className="py-[18px] bg-paper2 text-ink rounded-2xl font-semibold text-[15px] text-center hover:bg-paper2/70 active:scale-[0.97] transition-all border border-black/8">
+            My trips
           </Link>
         </div>
 
-        <div>
-          <div className="flex justify-between items-baseline mb-4">
-            <h2 className="font-semibold text-base">Recent bookings</h2>
-            <Link to="/driver/bookings" className="text-xs text-muted hover:text-ink font-semibold">See all →</Link>
+        {/* Active booking — if any */}
+        {active.length > 0 && (
+          <div className="mb-6">
+            <div className="font-mono text-[11px] text-muted tracking-wider mb-3">ACTIVE NOW</div>
+            <div className="flex flex-col gap-2">
+              {active.map(b => <BookingCard key={b.id} booking={b} />)}
+            </div>
           </div>
-          {loading ? <Loader size="sm" />
-            : bookings.length === 0
-            ? <EmptyState icon="◻" title="No bookings yet" message="Your bookings will appear here after your first reservation." />
-            : <div className="flex flex-col gap-3">{bookings.map(b => <BookingCard key={b.id} booking={b} />)}</div>
+        )}
+
+        {/* Upcoming bookings */}
+        {upcoming.length > 0 && (
+          <div className="mb-6">
+            <div className="font-mono text-[11px] text-muted tracking-wider mb-3">UPCOMING</div>
+            <div className="flex flex-col gap-2">
+              {upcoming.slice(0, 2).map(b => <BookingCard key={b.id} booking={b} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Recent history */}
+        <div>
+          <div className="flex justify-between items-baseline mb-3">
+            <div className="font-mono text-[11px] text-muted tracking-wider">RECENT TRIPS</div>
+            <Link to="/driver/bookings" className="text-xs font-semibold text-muted hover:text-ink">See all →</Link>
+          </div>
+          {loading
+            ? <Loader size="sm" />
+            : bookings.filter(b => b.status !== 'active' && b.status !== 'paid').length === 0
+            ? <EmptyState icon="◷" title="No trips yet"
+                message="Your booking history will appear here." />
+            : <div className="flex flex-col gap-2">
+                {bookings
+                  .filter(b => b.status !== 'active' && b.status !== 'paid')
+                  .slice(0, 3)
+                  .map(b => <BookingCard key={b.id} booking={b} />)
+                }
+              </div>
           }
         </div>
       </div>
