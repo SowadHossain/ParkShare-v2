@@ -36,6 +36,14 @@ export default function Login() {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
+  const demoAccounts = [
+    { email: 'driver@demo.com', password: 'password123', role: 'Driver' },
+    { email: 'host@demo.com', password: 'password123', role: 'Host' },
+    { email: 'admin@demo.com', password: 'password123', role: 'Admin' }
+  ]
+
+  const [showDemo, setShowDemo] = useState(false)
+
   return (
     <div className="min-h-screen flex bg-paper">
       {/* Left: form */}
@@ -114,6 +122,52 @@ export default function Login() {
           </p>
         </div>
         <div className="font-mono text-[11px] text-muted tracking-wider">© 2026 · CSE482</div>
+      </div>
+
+      {/* Demo Credentials Floating Helper */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => setShowDemo(!showDemo)}
+          className="w-12 h-12 rounded-full bg-lime text-ink flex items-center justify-center font-bold text-lg shadow-lg hover:bg-lime/90 transition-colors"
+          title="Test Credentials"
+        >
+          ?
+        </button>
+
+        {showDemo && (
+          <div className="absolute bottom-16 right-0 w-72 bg-white rounded-2xl shadow-2xl border border-black/10 p-4 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-mono text-xs font-bold text-ink tracking-wider">TEST ACCOUNTS</div>
+              <button
+                onClick={() => setShowDemo(false)}
+                className="text-lg text-muted hover:text-ink transition-colors"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {demoAccounts.map(acc => (
+                <div
+                  key={acc.email}
+                  className="p-3 bg-paper2 rounded-xl border border-black/5 hover:border-lime/30 cursor-pointer transition-all hover:bg-paper2/70"
+                  onClick={() => {
+                    setForm({ email: acc.email, password: acc.password })
+                    setShowDemo(false)
+                  }}
+                >
+                  <div className="font-mono text-[11px] text-muted tracking-wider mb-1">{acc.role.toUpperCase()}</div>
+                  <div className="text-xs text-ink font-semibold truncate">{acc.email}</div>
+                  <div className="text-xs text-muted font-mono mt-1">{acc.password}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-black/5">
+              <div className="font-mono text-[10px] text-muted leading-relaxed">Click an account to auto-fill the form.</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right: testimonial panel */}
