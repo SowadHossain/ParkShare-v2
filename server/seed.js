@@ -110,7 +110,17 @@ async function seed() {
       console.log(`  ✅ ${user.role.toUpperCase()}: ${user.email}`)
     }
     await pool.query(`UPDATE users SET onboarded = true WHERE onboarded = false`)
-    console.log('  ✅ Marked all existing users as onboarded')
+
+    // Skip spots/bookings/reviews if demo data already exists
+    const { rows: existingSpots } = await pool.query(
+      `SELECT id FROM spots WHERE host_id = $1 LIMIT 1`,
+      [userMap['host@demo.com']]
+    )
+    if (existingSpots.length > 0) {
+      console.log('\n⏭️  Demo spots/bookings/reviews already exist — skipping.')
+      console.log('\n✨ Seed complete (existing data preserved)\n')
+      return
+    }
 
     // Seed spots
     console.log('\n🅿️  Seeding spots...')
@@ -130,16 +140,22 @@ async function seed() {
     // Seed bookings
     console.log('\n📅 Seeding bookings...')
     const driverId = userMap['driver@demo.com']
+    const now = new Date()
+    const d = (offsetDays, h, m = 0) => {
+      const t = new Date(now)
+      t.setDate(t.getDate() + offsetDays)
+      t.setHours(h, m, 0, 0)
+      return t.toISOString()
+    }
 
     const bookings = [
-      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: '2026-05-13 09:00:00', endTime: '2026-05-13 14:00:00', totalPrice: 750, status: 'completed' },
-      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: '2026-05-13 15:00:00', endTime: '2026-05-13 18:00:00', totalPrice: 600, status: 'active' },
-      { spotId: spotMap['Large Garage - Dhanmondi'], driverId, startTime: '2026-05-14 08:00:00', endTime: '2026-05-14 17:00:00', totalPrice: 2250, status: 'paid' },
-      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: '2026-05-15 10:00:00', endTime: '2026-05-15 12:00:00', totalPrice: 300, status: 'pending' },
-      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: '2026-05-13 08:00:00', endTime: '2026-05-13 10:00:00', totalPrice: 400, status: 'completed' }
+      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: d(-2, 9), endTime: d(-2, 14), totalPrice: 750, status: 'completed' },
+      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: d(-1, 8), endTime: d(-1, 10), totalPrice: 400, status: 'completed' },
+      { spotId: spotMap['Large Garage - Dhanmondi'], driverId, startTime: d(1, 8), endTime: d(1, 17), totalPrice: 2250, status: 'paid' },
+      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: d(2, 10), endTime: d(2, 12), totalPrice: 300, status: 'pending' },
     ]
 
-    const bookingMap = {}
+    const bookingIds = []
     for (const booking of bookings) {
       const res = await pool.query(
         `INSERT INTO bookings (spot_id, driver_id, start_time, end_time, total_price, status)
@@ -147,71 +163,65 @@ async function seed() {
          RETURNING id`,
         [booking.spotId, booking.driverId, booking.startTime, booking.endTime, booking.totalPrice, booking.status]
       )
-      bookingMap[res.rows[0].id] = booking
+      bookingIds.push({ id: res.rows[0].id, ...booking })
       console.log(`  ✅ Booking: ${booking.status} - ৳${booking.totalPrice}`)
     }
 
-    // Seed transactions
+    // Seed transactions for paid/completed bookings
     console.log('\n💳 Seeding transactions...')
-    for (const [bookingId, booking] of Object.entries(bookingMap)) {
+    for (const booking of bookingIds) {
       if (booking.status === 'paid' || booking.status === 'completed') {
         await pool.query(
-          `INSERT INTO transactions (booking_id, amount, status)
-           VALUES ($1, $2, 'paid')`,
-          [bookingId, booking.totalPrice]
+          `INSERT INTO transactions (booking_id, amount, status) VALUES ($1, $2, 'paid')`,
+          [booking.id, booking.totalPrice]
         )
         console.log(`  ✅ Transaction: ৳${booking.totalPrice}`)
       }
     }
 
-    // Seed reviews
+    // Seed reviews (only for completed bookings)
     console.log('\n⭐ Seeding reviews...')
     const hostId = userMap['host@demo.com']
+    const completedBookings = bookingIds.filter(b => b.status === 'completed')
 
-    // Driver reviews host
     await pool.query(
       `INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-       VALUES ($1, $2, $3, 5, 'Amazing spot! Secure and clean. Mrs. Khan is very responsive.')`,
-      [Object.keys(bookingMap)[0], driverId, hostId]
+       VALUES ($1, $2, $3, 5, 'Amazing spot! Secure and clean. Very responsive host.')
+       ON CONFLICT (booking_id, reviewer_id) DO NOTHING`,
+      [completedBookings[0].id, driverId, hostId]
     )
     console.log(`  ✅ Driver ⭐⭐⭐⭐⭐ → Host`)
 
-    // Host reviews driver
     await pool.query(
       `INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-       VALUES ($1, $2, $3, 5, 'Excellent driver! Very respectful, left the spot clean.')`,
-      [Object.keys(bookingMap)[0], hostId, driverId]
+       VALUES ($1, $2, $3, 5, 'Excellent driver! Very respectful, left the spot clean.')
+       ON CONFLICT (booking_id, reviewer_id) DO NOTHING`,
+      [completedBookings[0].id, hostId, driverId]
     )
     console.log(`  ✅ Host ⭐⭐⭐⭐⭐ → Driver`)
 
-    // Driver reviews host again
     await pool.query(
       `INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-       VALUES ($1, $2, $3, 4, 'Good spot. Location is convenient.')`,
-      [Object.keys(bookingMap)[4], driverId, hostId]
+       VALUES ($1, $2, $3, 4, 'Good spot. Location is convenient.')
+       ON CONFLICT (booking_id, reviewer_id) DO NOTHING`,
+      [completedBookings[1].id, driverId, hostId]
     )
-    console.log(`  ✅ Driver ⭐⭐⭐⭐ → Host (Banani)`)
+    console.log(`  ✅ Driver ⭐⭐⭐⭐ → Host`)
 
     console.log('\n✨ All demo data seeded successfully!\n')
     console.log('📋 Test Credentials:')
     console.log('  Driver:  driver@demo.com / password123')
     console.log('  Host:    host@demo.com / password123')
     console.log('  Admin:   admin@demo.com / password123\n')
-    console.log('📊 Demo Data Summary:')
-    console.log(`  KYC Entries: ${KYC_WHITELIST.length}`)
-    console.log(`  Users:       ${Object.keys(userMap).length}`)
-    console.log(`  Spots:       ${Object.keys(spotMap).length}`)
-    console.log(`  Bookings:    ${Object.keys(bookingMap).length}`)
-    console.log(`  Reviews:     3`)
-    console.log('\n🪪 Test KYC Credentials for new signups:')
+    console.log('🪪 Test KYC for new signups:')
     console.log('  NID:           1234567890 (driver) | 9876543210 (host)')
     console.log('  License Plate: DHK-1234')
-
-    process.exit(0)
   } catch (err) {
     console.error('❌ Seed failed:', err.message)
     console.error(err)
     process.exit(1)
+  } finally {
+    await pool.end()
   }
 }
 
