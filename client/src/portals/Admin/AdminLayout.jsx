@@ -1,6 +1,6 @@
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 const NAV = [
   { to: '/admin',         label: 'Dashboard', icon: '◈', end: true },
@@ -11,17 +11,63 @@ const NAV = [
 ]
 
 const MOBILE_NAV = [
-  { to: '/admin',         label: 'Dashboard', end: true },
-  { to: '/admin/users',   label: 'Users'               },
-  { to: '/admin/spots',   label: 'Spots'               },
-  { to: '/admin/reviews', label: 'Reviews'             },
-  { to: '/admin/kyc',     label: 'KYC'                 },
+  { to: '/admin',         label: 'Home',    icon: '◈', end: true },
+  { to: '/admin/users',   label: 'Users',   icon: '◉'            },
+  { to: '/admin/spots',   label: 'Spots',   icon: '▤'            },
+  { to: '/admin/reviews', label: 'Reviews', icon: '★'            },
+  { to: '/admin/kyc',     label: 'KYC',     icon: '⊛'            },
 ]
+
+function AdminMobileDrawer({ user, onClose }) {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleSignOut() {
+    logout()
+    navigate('/')
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-paper rounded-t-3xl shadow-2xl">
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1.5 rounded-full bg-black/15" />
+        </div>
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-black/8">
+          <div className="w-11 h-11 rounded-full bg-ink flex items-center justify-center text-sm font-bold text-lime flex-shrink-0">
+            {user?.name?.charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-sm truncate">{user?.name}</div>
+            <div className="text-xs text-muted truncate">{user?.email}</div>
+          </div>
+          <span className="ml-auto font-mono text-[10px] bg-paper2 px-2 py-0.5 rounded-md font-bold">ADMIN</span>
+        </div>
+        <nav className="px-4 py-3 space-y-0.5">
+          <Link to="/" onClick={onClose}
+            className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-ink hover:bg-paper2 transition-colors">
+            <span className="text-base w-6 text-center">↗</span>
+            Back to site
+            <span className="ml-auto text-muted text-xs">→</span>
+          </Link>
+        </nav>
+        <div className="px-4 pb-6 pt-1 border-t border-black/8 mx-4">
+          <button onClick={handleSignOut}
+            className="w-full mt-3 py-3 rounded-xl text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+            Sign out
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
 
 export default function AdminLayout() {
   const { user, loading, logout } = useAuth()
   const navigate = useNavigate()
   const { key } = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!loading && (!user || user.role !== 'admin')) navigate('/login', { replace: true })
@@ -79,9 +125,13 @@ export default function AdminLayout() {
             </div>
             <span className="font-bold text-sm">ParkShare <span className="text-muted font-mono text-[10px]">ADMIN</span></span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-ink flex items-center justify-center text-xs font-bold text-lime">
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="w-9 h-9 rounded-full bg-ink flex items-center justify-center text-xs font-bold text-lime active:scale-95 transition-transform"
+            aria-label="Open menu"
+          >
             {user?.name?.charAt(0)}
-          </div>
+          </button>
         </header>
 
         {/* Content */}
@@ -93,14 +143,18 @@ export default function AdminLayout() {
       </div>
 
       {/* Floating pill nav — mobile only */}
-      <nav className="md:hidden pill-nav">
-        {MOBILE_NAV.map(({ to, label, end }) => (
+      <nav className="md:hidden pill-nav" style={{ gap: 0 }}>
+        {MOBILE_NAV.map(({ to, label, icon, end }) => (
           <NavLink key={to} to={to} end={end}
-            className={({ isActive }) => `pill-nav-item${isActive ? ' active' : ''}`}>
-            {label}
+            className={({ isActive }) => `pill-nav-item flex flex-col items-center gap-0.5${isActive ? ' active' : ''}`}
+            style={{ padding: '6px 10px', minWidth: 0 }}>
+            <span className="text-[15px] leading-none">{icon}</span>
+            <span className="font-mono text-[9px] font-semibold tracking-wide">{label}</span>
           </NavLink>
         ))}
       </nav>
+
+      {menuOpen && <AdminMobileDrawer user={user} onClose={() => setMenuOpen(false)} />}
     </div>
   )
 }

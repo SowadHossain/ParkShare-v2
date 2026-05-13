@@ -61,6 +61,13 @@ const upload = multer({
         added_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE kyc_whitelist ADD COLUMN IF NOT EXISTS nid_id INTEGER REFERENCES kyc_whitelist(id) ON DELETE SET NULL;
+    `)
+    // Extend booking status check constraint to include approved/rejected
+    await pool.query(`
+      ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
+      ALTER TABLE bookings ADD CONSTRAINT bookings_status_check
+        CHECK (status IN ('pending','approved','rejected','paid','active','completed','cancelled'));
     `)
   } catch (e) { /* columns may already exist */ }
 })()
@@ -91,6 +98,8 @@ async function transitionBookings() {
     WHERE status = 'paid' AND start_time <= NOW() AND end_time > NOW();
     UPDATE bookings SET status = 'completed'
     WHERE status IN ('paid', 'active') AND end_time <= NOW();
+    UPDATE bookings SET status = 'cancelled'
+    WHERE status = 'approved' AND start_time < NOW();
   `)
 }
 
@@ -111,13 +120,17 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
       `SELECT id FROM kyc_whitelist WHERE type = 'nid' AND LOWER(value) = LOWER($1)`, [nid]
     )
     if (!nidRow.rows.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
+    const nidEntryId = nidRow.rows[0].id
 
     if (safeRole === 'driver') {
       if (!license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
       const plateRow = await pool.query(
-        `SELECT id FROM kyc_whitelist WHERE type = 'license_plate' AND LOWER(value) = LOWER($1)`, [license_plate]
+        `SELECT id FROM kyc_whitelist
+         WHERE type = 'license_plate' AND LOWER(value) = LOWER($1)
+           AND (nid_id = $2 OR nid_id IS NULL)`,
+        [license_plate, nidEntryId]
       )
-      if (!plateRow.rows.length) return res.status(403).json({ message: 'License plate not found in our approved database. Contact support.' })
+      if (!plateRow.rows.length) return res.status(403).json({ message: 'License plate is not registered under this NID. Contact support.' })
     }
 
     const existing = await User.findByEmail(email)
@@ -370,6 +383,31 @@ app.delete('/api/spots/:id', auth, requireRole('host', 'admin'), async (req, res
 // ══════════════════════════════════════════════════════════════════════════
 // BOOKINGS
 // ══════════════════════════════════════════════════════════════════════════
+
+// GET /api/spots/:id/booked-slots?date=YYYY-MM-DD
+app.get('/api/spots/:id/booked-slots', async (req, res) => {
+  try {
+    const { date } = req.query
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ message: 'date query param required (YYYY-MM-DD)' })
+    }
+    const dayStart = new Date(date + 'T00:00:00+06:00')
+    const dayEnd   = new Date(date + 'T23:59:59+06:00')
+    const { rows } = await pool.query(
+      `SELECT start_time, end_time FROM bookings
+       WHERE spot_id = $1
+         AND status IN ('approved','paid','active')
+         AND start_time < $3
+         AND end_time   > $2`,
+      [req.params.id, dayStart.toISOString(), dayEnd.toISOString()]
+    )
+    res.json(rows.map(r => ({ start: r.start_time, end: r.end_time })))
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 app.post('/api/bookings', auth, requireRole('driver'), async (req, res) => {
   try {
     const { spotId, startTime, endTime } = req.body
@@ -379,10 +417,29 @@ app.post('/api/bookings', auth, requireRole('driver'), async (req, res) => {
     if (start >= end) return res.status(400).json({ message: 'endTime must be after startTime' })
     if (start < new Date()) return res.status(400).json({ message: 'startTime must be in the future' })
     const hours = (end - start) / 3600000
+    if (hours < 1) return res.status(400).json({ message: 'Minimum booking is 1 hour' })
     if (hours > 720) return res.status(400).json({ message: 'Booking cannot exceed 30 days' })
+
+    // Validate 15-minute alignment (BDT)
+    const startMinBDT = (start.getUTCHours() * 60 + start.getUTCMinutes() + 6 * 60) % (24 * 60)
+    const endMinBDT   = (end.getUTCHours()   * 60 + end.getUTCMinutes()   + 6 * 60) % (24 * 60)
+    if (startMinBDT % 15 !== 0 || endMinBDT % 15 !== 0) {
+      return res.status(400).json({ message: 'Times must be on 15-minute boundaries' })
+    }
 
     const spot = await Spot.findById(spotId)
     if (!spot) return res.status(404).json({ message: 'Spot not found' })
+
+    // Validate against spot's available window
+    if (spot.available_from && spot.available_to) {
+      const [fh, fm] = spot.available_from.split(':').map(Number)
+      const [th, tm] = spot.available_to.split(':').map(Number)
+      const fromMin = fh * 60 + fm
+      const toMin   = th * 60 + tm
+      if (startMinBDT < fromMin || endMinBDT > toMin) {
+        return res.status(400).json({ message: `Spot is only available ${spot.available_from.slice(0,5)} – ${spot.available_to.slice(0,5)}` })
+      }
+    }
 
     const conflict = await Booking.checkConflict(spotId, startTime, endTime)
     if (conflict) return res.status(409).json({ message: 'Time slot not available' })
@@ -436,12 +493,57 @@ app.get('/api/bookings/:id', auth, async (req, res) => {
   }
 })
 
+// POST /api/bookings/:id/approve — host only
+app.post('/api/bookings/:id/approve', auth, requireRole('host'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+    if (!booking) return res.status(404).json({ message: 'Not found' })
+    if (booking.host_id !== req.user.id) return res.status(403).json({ message: 'Forbidden' })
+    if (booking.status !== 'pending') return res.status(400).json({ message: 'Only pending bookings can be approved' })
+
+    const conflict = await Booking.checkConflict(booking.spot_id, booking.start_time, booking.end_time, booking.id)
+    if (conflict) return res.status(409).json({ message: 'Another booking already approved for this slot' })
+
+    await Booking.updateStatus(booking.id, 'approved')
+    await createNotification(
+      booking.driver_id, 'booking_approved',
+      `Your booking at ${booking.spot_title} was approved! Proceed to payment.`,
+      `/driver/bookings/${booking.id}`
+    )
+    res.json({ message: 'Booking approved' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// POST /api/bookings/:id/reject — host only
+app.post('/api/bookings/:id/reject', auth, requireRole('host'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+    if (!booking) return res.status(404).json({ message: 'Not found' })
+    if (booking.host_id !== req.user.id) return res.status(403).json({ message: 'Forbidden' })
+    if (booking.status !== 'pending') return res.status(400).json({ message: 'Only pending bookings can be rejected' })
+
+    await Booking.updateStatus(booking.id, 'rejected')
+    await createNotification(
+      booking.driver_id, 'booking_rejected',
+      `Your booking request at ${booking.spot_title} was not approved.`,
+      `/driver/bookings/${booking.id}`
+    )
+    res.json({ message: 'Booking rejected' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 app.patch('/api/bookings/:id/cancel', auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
     if (!booking) return res.status(404).json({ message: 'Not found' })
     if (booking.driver_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' })
-    if (!['pending', 'paid'].includes(booking.status)) return res.status(400).json({ message: 'Cannot cancel' })
+    if (!['pending', 'approved', 'paid'].includes(booking.status)) return res.status(400).json({ message: 'Cannot cancel' })
     const updated = await Booking.updateStatus(req.params.id, 'cancelled')
     // Issue Stripe refund if the booking was already paid
     if (booking.stripe_payment_id) {
@@ -749,9 +851,10 @@ app.get('/api/admin/bookings', auth, requireRole('admin'), async (req, res) => {
 app.get('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT k.*, u.name AS added_by_name
+      `SELECT k.*, u.name AS added_by_name, n.value AS linked_nid
        FROM kyc_whitelist k
        LEFT JOIN users u ON u.id = k.added_by
+       LEFT JOIN kyc_whitelist n ON n.id = k.nid_id
        ORDER BY k.created_at DESC`
     )
     res.json(rows)
@@ -760,13 +863,24 @@ app.get('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
 
 app.post('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
   try {
-    const { type, value, note } = req.body
+    const { type, value, note, linkedNid } = req.body
     if (!type || !value) return res.status(400).json({ message: 'type and value required' })
     if (!['nid', 'license_plate'].includes(type)) return res.status(400).json({ message: 'type must be nid or license_plate' })
+
+    let nidId = null
+    if (type === 'license_plate' && linkedNid) {
+      const nidRow = await pool.query(
+        `SELECT id FROM kyc_whitelist WHERE type = 'nid' AND LOWER(value) = LOWER($1)`,
+        [linkedNid.trim()]
+      )
+      if (!nidRow.rows.length) return res.status(400).json({ message: `NID "${linkedNid}" not found in whitelist` })
+      nidId = nidRow.rows[0].id
+    }
+
     const { rows } = await pool.query(
-      `INSERT INTO kyc_whitelist (type, value, note, added_by) VALUES ($1, $2, $3, $4)
+      `INSERT INTO kyc_whitelist (type, value, note, added_by, nid_id) VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (value) DO NOTHING RETURNING *`,
-      [type, value.trim().toUpperCase(), note || null, req.user.id]
+      [type, value.trim().toUpperCase(), note || null, req.user.id, nidId]
     )
     if (!rows.length) return res.status(409).json({ message: 'This value already exists in the whitelist' })
     res.status(201).json(rows[0])

@@ -25,7 +25,7 @@ export default function PaymentSuccess() {
           <div className="font-semibold text-sm mb-1">{booking.spot_title}</div>
           <div className="text-xs text-muted">{booking.spot_address}</div>
           <div className="font-mono text-xs text-muted mt-3">
-            {new Date(booking.start_time).toLocaleString()} → {new Date(booking.end_time).toLocaleTimeString()}
+            {new Date(booking.start_time).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' })} → {new Date(booking.end_time).toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', timeStyle: 'short' })}
           </div>
           <div className="font-mono text-lg font-bold mt-2">৳{parseFloat(booking.total_price).toFixed(2)} paid</div>
         </div>

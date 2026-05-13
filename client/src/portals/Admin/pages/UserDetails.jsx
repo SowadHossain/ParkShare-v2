@@ -72,7 +72,7 @@ export default function AdminUserDetails() {
               <div key={b.id} className="flex items-center justify-between p-3 bg-white border border-black/10 rounded-xl text-sm">
                 <div>
                   <div className="font-medium">{b.spot_title}</div>
-                  <div className="text-xs text-muted">{new Date(b.start_time).toLocaleDateString()}</div>
+                  <div className="text-xs text-muted">{new Date(b.start_time).toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka' })}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={b.status} />

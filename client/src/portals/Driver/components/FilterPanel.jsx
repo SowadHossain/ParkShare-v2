@@ -5,13 +5,15 @@ export default function FilterPanel({ filters, onChange }) {
     <div className="flex flex-col gap-5">
       <div>
         <label className="font-mono text-[11px] text-muted tracking-wider block mb-2">MAX PRICE / HR</label>
-        <div className="font-mono text-2xl font-bold">${filters.maxPrice || 10}</div>
-        <input type="range" min={1} max={10} step={0.5}
-          value={filters.maxPrice || 10}
-          onChange={e => set('maxPrice', parseFloat(e.target.value))}
+        <div className="font-mono text-2xl font-bold">
+          {filters.maxPrice >= 1000 ? '৳1000+' : `৳${filters.maxPrice}`}
+        </div>
+        <input type="range" min={100} max={1000} step={50}
+          value={filters.maxPrice}
+          onChange={e => set('maxPrice', parseInt(e.target.value))}
           className="w-full mt-2 accent-ink" />
         <div className="flex justify-between font-mono text-[10px] text-muted mt-1">
-          <span>$1</span><span>$10+</span>
+          <span>৳100</span><span>৳1000+</span>
         </div>
       </div>
 

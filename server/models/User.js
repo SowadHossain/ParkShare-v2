@@ -18,8 +18,8 @@ const User = {
 
   async create({ name, email, passwordHash, phone, role, nid, license_plate, kyc_status }) {
     const { rows } = await pool.query(
-      `INSERT INTO users (name, email, password_hash, phone, role, nid, license_plate, kyc_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO users (name, email, password_hash, phone, role, nid, license_plate, kyc_status, onboarded)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE) RETURNING *`,
       [name, email, passwordHash, phone || null, role || 'driver', nid || null, license_plate || null, kyc_status || 'pending']
     )
     return rows[0]

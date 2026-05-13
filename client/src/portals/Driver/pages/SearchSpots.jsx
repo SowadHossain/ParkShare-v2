@@ -9,7 +9,7 @@ import Loader from '../../../components/UI/Loader.jsx'
 import EmptyState from '../../../components/UI/EmptyState.jsx'
 
 const DEFAULT_CENTER  = { lat: 23.7937, lng: 90.4066 }
-const DEFAULT_FILTERS = { maxPrice: 10, vehicleSize: '', minRating: 0 }
+const DEFAULT_FILTERS = { maxPrice: 1000, vehicleSize: '', minRating: 0 }
 const LIBRARIES       = ['places']
 
 export default function SearchSpots() {
@@ -20,7 +20,8 @@ export default function SearchSpots() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [geoBlocked, setGeoBlocked] = useState(false)
-  const autocompleteRef = useRef(null)
+  const desktopACRef = useRef(null)
+  const mobileACRef  = useRef(null)
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
@@ -32,7 +33,7 @@ export default function SearchSpots() {
     try {
       const params = {
         lat: center.lat, lng: center.lng,
-        ...(filters.maxPrice < 10  && { maxPrice: filters.maxPrice }),
+        ...(filters.maxPrice < 1000 && { maxPrice: filters.maxPrice }),
         ...(filters.vehicleSize    && { vehicleSize: filters.vehicleSize }),
         ...(filters.minRating > 0  && { minRating: filters.minRating }),
       }
@@ -52,15 +53,14 @@ export default function SearchSpots() {
     )
   }, [])
 
-  function handlePlaceChanged() {
-    const place = autocompleteRef.current?.getPlace()
+  function applyPlace(ref) {
+    const place = ref.current?.getPlace()
     if (place?.geometry?.location) {
-      setCenter({
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-      })
+      setCenter({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() })
     }
   }
+  const handlePlaceDesktop = () => applyPlace(desktopACRef)
+  const handlePlaceMobile  = () => applyPlace(mobileACRef)
 
   return (
     <div className="flex flex-col h-[calc(100dvh-0px)] md:h-[calc(100vh-65px)]">
@@ -89,7 +89,7 @@ export default function SearchSpots() {
           {/* Desktop search bar */}
           <div className="p-4 border-b border-black/10 sticky top-0 bg-white z-10">
             {isLoaded ? (
-              <Autocomplete onLoad={a => (autocompleteRef.current = a)} onPlaceChanged={handlePlaceChanged} className="w-full">
+              <Autocomplete onLoad={a => (desktopACRef.current = a)} onPlaceChanged={handlePlaceDesktop} className="w-full">
                 <input type="text" placeholder="Search any location…"
                   className="w-full px-4 py-2.5 bg-paper rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 border border-black/10" />
               </Autocomplete>
@@ -128,7 +128,7 @@ export default function SearchSpots() {
         {/* Floating search bar (glass) */}
         <div className="absolute top-4 left-4 right-4 z-20 flex gap-2">
           {isLoaded ? (
-            <Autocomplete onLoad={a => (autocompleteRef.current = a)} onPlaceChanged={handlePlaceChanged} className="flex-1">
+            <Autocomplete onLoad={a => (mobileACRef.current = a)} onPlaceChanged={handlePlaceMobile} className="flex-1">
               <input type="text" placeholder="Search location…"
                 className="w-full h-[52px] px-4 bg-white rounded-[18px] text-sm shadow-[0_6px_20px_rgba(0,0,0,0.12)] border-0 focus:outline-none focus:ring-2 focus:ring-ink/20"
                 style={{ backdropFilter: 'blur(16px)' }}

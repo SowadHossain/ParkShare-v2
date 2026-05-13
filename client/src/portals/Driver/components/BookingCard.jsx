@@ -4,6 +4,8 @@ const STATUS_STYLES = {
   active:    { bg: 'bg-ink text-paper', chip: 'bg-lime text-ink', label: '● Active'    },
   paid:      { bg: 'bg-white border border-black/10', chip: 'bg-paper2 text-ink', label: '● Upcoming' },
   pending:   { bg: 'bg-white border border-black/10', chip: 'bg-[#FFD4A8] text-[#5A3416]', label: '● Pending' },
+  approved:  { bg: 'bg-white border border-black/10', chip: 'bg-lime/60 text-ink', label: '● Approved' },
+  rejected:  { bg: 'bg-white border border-black/10', chip: 'bg-[#FFEAE5] text-[#9A3310]', label: 'Rejected'  },
   completed: { bg: 'bg-white border border-black/10', chip: 'bg-paper2 text-ink', label: 'Completed'  },
   cancelled: { bg: 'bg-white border border-black/10', chip: 'bg-[#FFEAE5] text-[#9A3310]', label: 'Cancelled' },
 }
@@ -11,8 +13,8 @@ const STATUS_STYLES = {
 export default function BookingCard({ booking }) {
   const start = new Date(booking.start_time)
   const end   = new Date(booking.end_time)
-  const fmt  = d => d.toLocaleDateString('en-BD', { month: 'short', day: 'numeric' })
-  const fmtT = d => d.toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit' })
+  const fmt  = d => d.toLocaleDateString('en-BD', { timeZone: 'Asia/Dhaka', month: 'short', day: 'numeric' })
+  const fmtT = d => d.toLocaleTimeString('en-BD', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' })
 
   const style = STATUS_STYLES[booking.status] || STATUS_STYLES.completed
   const isDark = booking.status === 'active'

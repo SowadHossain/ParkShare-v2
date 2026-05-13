@@ -109,6 +109,8 @@ async function seed() {
       userMap[user.email] = res.rows[0].id
       console.log(`  ✅ ${user.role.toUpperCase()}: ${user.email}`)
     }
+    await pool.query(`UPDATE users SET onboarded = true WHERE onboarded = false`)
+    console.log('  ✅ Marked all existing users as onboarded')
 
     // Seed spots
     console.log('\n🅿️  Seeding spots...')

@@ -117,9 +117,9 @@ export default function HostDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="text-[14px] font-medium truncate">{b.driver_name}</div>
                       <div className="font-mono text-xs text-muted mt-0.5">
-                        {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(b.start_time).toLocaleTimeString('en-BD', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' })}
                         {' → '}
-                        {new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(b.end_time).toLocaleTimeString('en-BD', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <StatusBadge status={b.status} />

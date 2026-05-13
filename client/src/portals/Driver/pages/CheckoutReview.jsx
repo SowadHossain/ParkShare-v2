@@ -19,11 +19,21 @@ export default function CheckoutReview() {
 
   if (loading) return <Loader />
   if (!booking) return <div className="p-10 text-center text-muted">Booking not found.</div>
+  if (booking.status !== 'approved') return (
+    <div className="max-w-md mx-auto px-6 py-16 text-center">
+      <div className="text-4xl mb-4">⏳</div>
+      <h1 className="text-2xl font-bold mb-3">Not ready for payment</h1>
+      <p className="text-muted text-sm mb-6">This booking must be approved by the host before payment.</p>
+      <button onClick={() => navigate(`/driver/bookings/${bookingId}`)} className="px-6 py-3 bg-ink text-paper rounded-full text-sm font-semibold hover:bg-ink/90 transition-colors">
+        Back to booking →
+      </button>
+    </div>
+  )
 
   const start = new Date(booking.start_time)
   const end = new Date(booking.end_time)
   const hours = ((end - start) / 3600000).toFixed(1)
-  const fmt = d => d.toLocaleString('en-BD', { dateStyle: 'medium', timeStyle: 'short' })
+  const fmt = d => d.toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' })
 
   return (
     <div className="max-w-md mx-auto px-6 py-10">

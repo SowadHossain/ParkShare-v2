@@ -24,10 +24,10 @@ export default function BookingDetails() {
   const now = Date.now()
   const start = new Date(booking.start_time)
   const end = new Date(booking.end_time)
-  const isActive = booking.status === 'active' || (booking.status === 'paid' && now >= start && now <= end)
+  const isActive    = booking.status === 'active' || (booking.status === 'paid' && now >= start && now <= end)
   const isCompleted = booking.status === 'completed' || (now > end && ['paid','active'].includes(booking.status))
-  const canCancel = ['pending', 'paid'].includes(booking.status) && !isActive
-  const canReview = isCompleted
+  const canCancel   = ['pending', 'approved', 'paid'].includes(booking.status) && !isActive
+  const canReview   = isCompleted
 
   return (
     <div className="max-w-md mx-auto px-6 py-10">
@@ -41,16 +41,40 @@ export default function BookingDetails() {
         <StatusBadge status={isCompleted ? 'completed' : booking.status} />
       </div>
 
+      {/* Approval status banners */}
+      {booking.status === 'pending' && (
+        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+          <div className="font-semibold text-sm text-amber-800">Waiting for host approval</div>
+          <p className="text-xs text-amber-700 mt-1">The host will review your request shortly. You'll be notified when it's approved.</p>
+        </div>
+      )}
+      {booking.status === 'approved' && (
+        <div className="mb-5 p-4 bg-lime/20 border border-lime rounded-2xl">
+          <div className="font-semibold text-sm mb-1">Host approved your request!</div>
+          <p className="text-xs text-muted mb-3">Proceed to payment to confirm your spot.</p>
+          <button onClick={() => navigate(`/driver/checkout/${id}`)}
+            className="w-full py-3 bg-ink text-paper rounded-full text-sm font-semibold hover:bg-ink/90 transition-colors">
+            Pay now · ৳{parseFloat(booking.total_price).toFixed(2)} →
+          </button>
+        </div>
+      )}
+      {booking.status === 'rejected' && (
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-2xl">
+          <div className="font-semibold text-sm text-red-700">Request declined</div>
+          <p className="text-xs text-red-600 mt-1">The host was unable to accept this booking.</p>
+        </div>
+      )}
+
       {isActive && <div className="mb-6"><CountdownTimer endTime={booking.end_time} /></div>}
 
       <div className="bg-white border border-black/10 rounded-2xl p-5 mb-5 space-y-3 text-sm">
         <div className="flex justify-between">
           <span className="text-muted">From</span>
-          <span className="font-medium">{start.toLocaleString()}</span>
+          <span className="font-medium">{start.toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' })}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted">To</span>
-          <span className="font-medium">{end.toLocaleString()}</span>
+          <span className="font-medium">{end.toLocaleString('en-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' })}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted">Host</span>
@@ -63,7 +87,7 @@ export default function BookingDetails() {
           </div>
         )}
         <div className="flex justify-between pt-3 border-t border-black/10 font-bold">
-          <span>Total paid</span>
+          <span>{['paid','active','completed'].includes(booking.status) ? 'Total paid' : 'Total'}</span>
           <span className="font-mono">৳{parseFloat(booking.total_price).toFixed(2)}</span>
         </div>
       </div>
