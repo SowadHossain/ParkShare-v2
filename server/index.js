@@ -73,6 +73,21 @@ async function transitionBookings() {
     .lt('start_time', now)
 }
 
+
+
+// ── TEST ────────────────────────────────────────────────────────────────────
+app.get('/test', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Backend is reachable',
+    timestamp: new Date().toISOString(),
+    port: process.env.PORT || 5000
+  })
+})
+
+
+
+
 // ══════════════════════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════════════════════
