@@ -96,7 +96,12 @@ export default function HostBookingDetails() {
           <span className="font-mono">৳{(parseFloat(booking.total_price) * 0.85).toFixed(2)}</span>
         </div>
       </div>
-      {isCompleted && (
+      {isCompleted && booking.has_my_review && (
+        <div className="p-4 bg-paper2 border border-black/10 rounded-2xl flex items-center gap-2 text-sm text-muted">
+          <span>★</span> Review submitted — thank you!
+        </div>
+      )}
+      {isCompleted && !booking.has_my_review && (
         <button onClick={() => navigate(`/host/bookings/${id}/review`)}
           className="w-full py-3.5 bg-ink text-paper rounded-full font-semibold text-sm hover:bg-ink/90 transition-colors">
           Write a review for driver →

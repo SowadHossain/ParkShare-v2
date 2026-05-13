@@ -27,7 +27,7 @@ export default function BookingDetails() {
   const isActive    = booking.status === 'active' || (booking.status === 'paid' && now >= start && now <= end)
   const isCompleted = booking.status === 'completed' || (now > end && ['paid','active'].includes(booking.status))
   const canCancel   = ['pending', 'approved', 'paid'].includes(booking.status) && !isActive
-  const canReview   = isCompleted
+  const canReview   = isCompleted && !booking.has_my_review
 
   return (
     <div className="max-w-md mx-auto px-6 py-10">
@@ -92,6 +92,11 @@ export default function BookingDetails() {
         </div>
       </div>
 
+      {isCompleted && booking.has_my_review && (
+        <div className="p-4 bg-paper2 border border-black/10 rounded-2xl mb-5 flex items-center gap-2 text-sm text-muted">
+          <span>★</span> Review submitted — thank you!
+        </div>
+      )}
       {canReview && (
         <div className="p-4 bg-lime/20 border border-lime rounded-2xl mb-5">
           <div className="font-semibold text-sm mb-1">How was your experience?</div>

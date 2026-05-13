@@ -33,7 +33,7 @@ export default function HostWriteReview() {
         rating,
         comment,
       })
-      navigate('/host/bookings')
+      navigate(`/host/bookings/${id}`, { replace: true })
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit')
       setSubmitting(false)

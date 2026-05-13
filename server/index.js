@@ -487,7 +487,8 @@ app.get('/api/bookings/:id', auth, async (req, res) => {
     if (booking.driver_id !== req.user.id && booking.host_id !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' })
     }
-    res.json(booking)
+    const has_my_review = await Review.existsForBooking(booking.id, req.user.id)
+    res.json({ ...booking, has_my_review })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }

@@ -46,7 +46,15 @@ const Review = {
 
   async getAll({ limit = 100, offset = 0 } = {}) {
     const { rows } = await pool.query(
-      `SELECT r.*, u.name AS reviewer_name FROM reviews r JOIN users u ON u.id = r.reviewer_id
+      `SELECT r.*,
+              u.name  AS reviewer_name,
+              rv.name AS reviewee_name,
+              s.title AS spot_title
+       FROM reviews r
+       JOIN users u    ON u.id  = r.reviewer_id
+       JOIN users rv   ON rv.id = r.reviewee_id
+       JOIN bookings b ON b.id  = r.booking_id
+       JOIN spots s    ON s.id  = b.spot_id
        ORDER BY r.created_at DESC LIMIT $1 OFFSET $2`,
       [limit, offset]
     )
