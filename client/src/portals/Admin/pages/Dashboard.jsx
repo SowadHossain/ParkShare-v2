@@ -47,11 +47,12 @@ export default function AdminDashboard() {
         <StatCard label="COMPLETED BOOKINGS" value={stats?.completed_bookings ?? 0} />
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         {[
           { to: '/admin/users', icon: '👤', label: 'Manage Users', desc: 'View and remove user accounts' },
           { to: '/admin/spots', icon: '🅿', label: 'Manage Spots', desc: 'Review and remove parking spots' },
           { to: '/admin/reviews', icon: '★', label: 'Manage Reviews', desc: 'Moderate user reviews' },
+          { to: '/admin/kyc', icon: '🪪', label: 'KYC Whitelist', desc: 'Manage approved NIDs & license plates' },
         ].map(({ to, icon, label, desc }) => (
           <Link key={to} to={to}
             className="flex items-start gap-4 p-5 bg-white border border-black/10 rounded-2xl hover:shadow-sm hover:border-black/20 transition-all">

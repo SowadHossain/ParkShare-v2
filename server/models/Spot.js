@@ -64,8 +64,7 @@ const Spot = {
     return rows
   },
 
-  async search({ lat, lng, maxPrice, minRating, vehicleSize, radius = 5 } = {}) {
-    // Haversine-style filter using bounding box + subquery for avg_rating
+  async search({ lat, lng, maxPrice, minRating, vehicleSize, startTime, endTime, radius = 5 } = {}) {
     let q = `
       SELECT s.*, u.name AS host_name,
              COALESCE(AVG(r.rating),0) AS avg_rating,
@@ -79,7 +78,6 @@ const Spot = {
     let i = 1
 
     if (lat && lng) {
-      // bounding box ~ radius km
       const latDelta = radius / 111.0
       const lngDelta = radius / (111.0 * Math.cos((lat * Math.PI) / 180))
       q += ` AND s.latitude BETWEEN $${i} AND $${i + 1} AND s.longitude BETWEEN $${i + 2} AND $${i + 3}`
@@ -88,6 +86,17 @@ const Spot = {
     }
     if (maxPrice) { q += ` AND s.hourly_price <= $${i++}`; vals.push(maxPrice) }
     if (vehicleSize) { q += ` AND s.vehicle_size = $${i++}`; vals.push(vehicleSize) }
+
+    // Exclude spots that have a confirmed booking overlapping the requested window
+    if (startTime && endTime) {
+      q += ` AND s.id NOT IN (
+        SELECT spot_id FROM bookings
+        WHERE status IN ('paid', 'active')
+          AND start_time < $${i + 1} AND end_time > $${i}
+      )`
+      vals.push(startTime, endTime)
+      i += 2
+    }
 
     q += ` GROUP BY s.id, u.name`
     if (minRating) { q += ` HAVING COALESCE(AVG(r.rating),0) >= $${i++}`; vals.push(minRating) }

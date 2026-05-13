@@ -19,6 +19,7 @@ export default function SearchSpots() {
   const [center, setCenter]       = useState(DEFAULT_CENTER)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [geoBlocked, setGeoBlocked] = useState(false)
   const autocompleteRef = useRef(null)
 
   const { isLoaded } = useJsApiLoader({
@@ -44,8 +45,10 @@ export default function SearchSpots() {
   useEffect(() => { fetchSpots() }, [fetchSpots])
 
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(pos =>
-      setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+    if (!navigator.geolocation) { setGeoBlocked(true); return }
+    navigator.geolocation.getCurrentPosition(
+      pos => setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setGeoBlocked(true)
     )
   }, [])
 
@@ -74,6 +77,11 @@ export default function SearchSpots() {
             <div className="font-mono text-2xl font-bold">{spots.length}</div>
             <div className="text-xs text-paper/60 mt-0.5">spots found</div>
           </div>
+          {geoBlocked && (
+            <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Location unavailable — showing Dhaka
+            </div>
+          )}
         </div>
 
         {/* Cards list */}
@@ -170,7 +178,9 @@ export default function SearchSpots() {
               <div className="text-[17px] font-bold leading-tight">
                 {loading ? 'Searching…' : `${spots.length} spots nearby`}
               </div>
-              <div className="text-xs text-muted mt-0.5">Sorted by distance</div>
+              <div className="text-xs text-muted mt-0.5">
+                {geoBlocked ? 'Location unavailable — showing Dhaka' : 'Sorted by distance'}
+              </div>
             </div>
             <button onClick={() => setSheetOpen(s => !s)}
               className="font-mono text-[11px] text-muted tracking-wider">

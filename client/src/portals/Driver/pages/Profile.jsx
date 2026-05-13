@@ -7,6 +7,9 @@ export default function DriverProfile() {
 
   return (
     <div className="max-w-lg mx-auto px-5 py-8">
+      <Link to="/driver/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink transition-colors mb-6">
+        ← Dashboard
+      </Link>
       <div className="font-mono text-xs text-muted tracking-wider mb-1">DRIVER PROFILE</div>
       <h1 className="text-3xl font-bold tracking-tight mb-8">Your account.</h1>
 
@@ -24,6 +27,7 @@ export default function DriverProfile() {
         </div>
       </div>
 
+      {/* Personal info */}
       <div className="bg-white border border-black/10 rounded-2xl p-5 mb-4 space-y-3 text-sm">
         {user.phone && (
           <div className="flex justify-between">
@@ -41,6 +45,42 @@ export default function DriverProfile() {
           <span className="text-muted">Member since</span>
           <span className="font-medium font-mono">{new Date(user.created_at).toLocaleDateString()}</span>
         </div>
+      </div>
+
+      {/* Vehicle info */}
+      <div className="bg-white border border-black/10 rounded-2xl p-5 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-mono text-[11px] text-muted tracking-wider">YOUR VEHICLE</div>
+          <Link to="/driver/profile/edit" className="text-xs font-semibold text-muted hover:text-ink transition-colors">Edit →</Link>
+        </div>
+        {user.vehicle_make || user.vehicle_model ? (
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted">Vehicle</span>
+              <span className="font-medium">{[user.vehicle_color, user.vehicle_make, user.vehicle_model].filter(Boolean).join(' ')}</span>
+            </div>
+            {user.vehicle_size && (
+              <div className="flex justify-between">
+                <span className="text-muted">Size</span>
+                <span className="font-medium capitalize">{user.vehicle_size}</span>
+              </div>
+            )}
+            {user.license_plate && (
+              <div className="flex justify-between">
+                <span className="text-muted">Plate</span>
+                <span className="font-medium font-mono tracking-widest">{user.license_plate}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted">No vehicle added yet.</p>
+            <Link to="/driver/profile/edit"
+              className="text-xs font-semibold text-ink bg-lime px-3 py-1.5 rounded-full hover:bg-lime/80 transition-colors">
+              Add car →
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">

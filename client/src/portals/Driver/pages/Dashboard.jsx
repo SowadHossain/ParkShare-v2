@@ -53,6 +53,19 @@ export default function DriverDashboard() {
           )}
         </div>
 
+        {/* Vehicle nudge — shown until driver adds car info */}
+        {!user?.vehicle_make && (
+          <Link to="/driver/profile/edit"
+            className="flex items-center gap-3 p-4 bg-lime rounded-2xl mb-5 hover:bg-lime/80 active:scale-[0.98] transition-all">
+            <span className="text-2xl">🚗</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm">Add your vehicle</div>
+              <div className="text-xs text-ink/60 mt-0.5">Make, model, and size so hosts know what to expect.</div>
+            </div>
+            <span className="text-ink/50 text-sm flex-shrink-0">→</span>
+          </Link>
+        )}
+
         {/* Quick actions */}
         <div className="grid grid-cols-2 gap-3 mb-8">
           <Link to="/driver/search"

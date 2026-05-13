@@ -64,6 +64,7 @@ import ModerationSpots from './portals/Admin/pages/ModerationSpots.jsx'
 import ModerationReviews from './portals/Admin/pages/ModerationReviews.jsx'
 import AdminUserDetails from './portals/Admin/pages/UserDetails.jsx'
 import AdminSpotDetails from './portals/Admin/pages/SpotDetails.jsx'
+import KycWhitelist from './portals/Admin/pages/KycWhitelist.jsx'
 
 const router = createBrowserRouter([
   // ── Public ────────────────────────────────────────────────────────────
@@ -147,6 +148,7 @@ const router = createBrowserRouter([
       { path: 'spots', element: <ModerationSpots /> },
       { path: 'spots/:id', element: <AdminSpotDetails /> },
       { path: 'reviews', element: <ModerationReviews /> },
+      { path: 'kyc', element: <KycWhitelist /> },
     ],
   },
 

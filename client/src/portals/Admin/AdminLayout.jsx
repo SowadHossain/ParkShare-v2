@@ -7,6 +7,7 @@ const NAV = [
   { to: '/admin/users',   label: 'Users',     icon: '◉'            },
   { to: '/admin/spots',   label: 'Spots',     icon: '▤'            },
   { to: '/admin/reviews', label: 'Reviews',   icon: '★'            },
+  { to: '/admin/kyc',     label: 'KYC',       icon: '⊛'            },
 ]
 
 const MOBILE_NAV = [
@@ -14,6 +15,7 @@ const MOBILE_NAV = [
   { to: '/admin/users',   label: 'Users'               },
   { to: '/admin/spots',   label: 'Spots'               },
   { to: '/admin/reviews', label: 'Reviews'             },
+  { to: '/admin/kyc',     label: 'KYC'                 },
 ]
 
 export default function AdminLayout() {

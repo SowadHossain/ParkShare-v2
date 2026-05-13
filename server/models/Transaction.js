@@ -36,6 +36,14 @@ const Transaction = {
     return rows
   },
 
+  async getByStripeId(stripeId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM transactions WHERE stripe_id = $1',
+      [stripeId]
+    )
+    return rows[0]
+  },
+
   async getByBooking(bookingId) {
     const { rows } = await pool.query(
       'SELECT * FROM transactions WHERE booking_id = $1',

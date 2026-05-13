@@ -16,17 +16,17 @@ const User = {
     return rows[0]
   },
 
-  async create({ name, email, passwordHash, phone, role }) {
+  async create({ name, email, passwordHash, phone, role, nid, license_plate, kyc_status }) {
     const { rows } = await pool.query(
-      `INSERT INTO users (name, email, password_hash, phone, role)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [name, email, passwordHash, phone || null, role || 'driver']
+      `INSERT INTO users (name, email, password_hash, phone, role, nid, license_plate, kyc_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [name, email, passwordHash, phone || null, role || 'driver', nid || null, license_plate || null, kyc_status || 'pending']
     )
     return rows[0]
   },
 
   async update(id, fields) {
-    const allowed = ['name', 'phone', 'bio', 'onboarded', 'avatar_url']
+    const allowed = ['name', 'phone', 'bio', 'onboarded', 'avatar_url', 'vehicle_make', 'vehicle_model', 'vehicle_color', 'vehicle_size']
     const sets = []
     const vals = []
     let i = 1

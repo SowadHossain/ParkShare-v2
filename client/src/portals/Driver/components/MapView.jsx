@@ -1,5 +1,5 @@
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api'
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const MAP_STYLE = [
@@ -10,6 +10,14 @@ const MAP_STYLE = [
 export default function MapView({ spots = [], center, onCenterChange, isLoaded }) {
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
+  const mapRef = useRef(null)
+
+  const onLoad = useCallback(map => { mapRef.current = map }, [])
+
+  const handleDragEnd = useCallback(() => {
+    const c = mapRef.current?.getCenter()
+    if (c && onCenterChange) onCenterChange({ lat: c.lat(), lng: c.lng() })
+  }, [onCenterChange])
 
   const mapCenter = center || { lat: 23.7937, lng: 90.4066 }
 
@@ -34,10 +42,8 @@ export default function MapView({ spots = [], center, onCenterChange, isLoaded }
         streetViewControl: false,
         mapTypeControl: false,
       }}
-      onDragEnd={map => {
-        const c = map.getCenter()
-        if (c && onCenterChange) onCenterChange({ lat: c.lat(), lng: c.lng() })
-      }}
+      onLoad={onLoad}
+      onDragEnd={handleDragEnd}
     >
       {spots.map(spot => (
         <Marker

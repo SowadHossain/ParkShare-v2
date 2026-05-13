@@ -3,6 +3,7 @@ const express = require('express')
 const cors = require('cors')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
+const rateLimit = require('express-rate-limit')
 const passport = require('./config/passport')
 const multer = require('multer')
 const path = require('path')
@@ -44,6 +45,22 @@ const upload = multer({
     await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
       ALTER TABLE spots ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT ARRAY[]::TEXT[];
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS nid VARCHAR(100);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS license_plate VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_status VARCHAR(20) NOT NULL DEFAULT 'pending';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_make VARCHAR(80);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_model VARCHAR(80);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_color VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_size VARCHAR(20);
+      CREATE UNIQUE INDEX IF NOT EXISTS transactions_stripe_id_key ON transactions (stripe_id);
+      CREATE TABLE IF NOT EXISTS kyc_whitelist (
+        id           SERIAL PRIMARY KEY,
+        type         VARCHAR(20) NOT NULL CHECK (type IN ('nid','license_plate')),
+        value        VARCHAR(100) NOT NULL UNIQUE,
+        note         TEXT,
+        added_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
     `)
   } catch (e) { /* columns may already exist */ }
 })()
@@ -53,6 +70,9 @@ app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
 app.use(express.json())
 app.use(passport.initialize())
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { message: 'Too many attempts, try again in 15 minutes' } })
+const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: { message: 'Too many registrations from this IP' } })
 
 const sign = (user) =>
   jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' })
@@ -65,18 +85,45 @@ async function createNotification(userId, type, message, link = null) {
   )
 }
 
+async function transitionBookings() {
+  await pool.query(`
+    UPDATE bookings SET status = 'active'
+    WHERE status = 'paid' AND start_time <= NOW() AND end_time > NOW();
+    UPDATE bookings SET status = 'completed'
+    WHERE status IN ('paid', 'active') AND end_time <= NOW();
+  `)
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════════════════════
 // POST /api/auth/register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', registerLimiter, async (req, res) => {
   try {
-    const { name, email, password, phone, role } = req.body
+    const { name, email, password, phone, role, nid, license_plate } = req.body
     if (!name || !email || !password) return res.status(400).json({ message: 'name, email, password required' })
+
+    // Public registration is limited to driver/host — never admin
+    const safeRole = role === 'host' ? 'host' : 'driver'
+
+    if (!nid) return res.status(400).json({ message: 'NID number is required' })
+    const nidRow = await pool.query(
+      `SELECT id FROM kyc_whitelist WHERE type = 'nid' AND LOWER(value) = LOWER($1)`, [nid]
+    )
+    if (!nidRow.rows.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
+
+    if (safeRole === 'driver') {
+      if (!license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
+      const plateRow = await pool.query(
+        `SELECT id FROM kyc_whitelist WHERE type = 'license_plate' AND LOWER(value) = LOWER($1)`, [license_plate]
+      )
+      if (!plateRow.rows.length) return res.status(403).json({ message: 'License plate not found in our approved database. Contact support.' })
+    }
+
     const existing = await User.findByEmail(email)
     if (existing) return res.status(409).json({ message: 'Email already in use' })
     const passwordHash = await bcrypt.hash(password, 10)
-    const user = await User.create({ name, email, passwordHash, phone, role: role || 'driver' })
+    const user = await User.create({ name, email, passwordHash, phone, role: safeRole, nid, license_plate: safeRole === 'driver' ? license_plate : null, kyc_status: 'approved' })
     const token = sign(user)
     const { password_hash: _ph, ...safeUser } = user
     res.status(201).json({ token, user: safeUser })
@@ -87,7 +134,7 @@ app.post('/api/auth/register', async (req, res) => {
 })
 
 // POST /api/auth/login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body
     const user = await User.findByEmail(email)
@@ -154,6 +201,11 @@ app.get('/api/users/:id', auth, async (req, res) => {
     const user = await User.findById(req.params.id)
     if (!user) return res.status(404).json({ message: 'User not found' })
     const { password_hash, ...safe } = user
+    // Non-owners/non-admins only get public fields
+    if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+      const { id, name, avatar_url, bio, role, avg_rating, created_at } = safe
+      return res.json({ id, name, avatar_url, bio, role, avg_rating, created_at })
+    }
     res.json(safe)
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -165,15 +217,42 @@ app.put('/api/users/:id', auth, async (req, res) => {
     if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' })
     }
-    const user = await User.update(req.params.id, req.body)
-    res.json(user)
+
+    const { currentPassword, password, ...profileFields } = req.body
+
+    // Handle password change
+    if (password) {
+      if (password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' })
+      const existing = await User.findById(req.params.id)
+      if (!existing) return res.status(404).json({ message: 'User not found' })
+      if (existing.password_hash) {
+        if (!currentPassword) return res.status(400).json({ message: 'Current password required' })
+        const valid = await bcrypt.compare(currentPassword, existing.password_hash)
+        if (!valid) return res.status(401).json({ message: 'Current password is incorrect' })
+      }
+      const newHash = await bcrypt.hash(password, 10)
+      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.params.id])
+    }
+
+    // Handle profile field updates
+    let updated = await User.findById(req.params.id)
+    if (Object.keys(profileFields).length > 0) {
+      updated = await User.update(req.params.id, profileFields) || updated
+    }
+
+    const { password_hash, ...safe } = updated
+    res.json(safe)
   } catch (err) {
+    console.error(err)
     res.status(500).json({ message: 'Server error' })
   }
 })
 
-app.delete('/api/users/:id', auth, requireRole('admin'), async (req, res) => {
+app.delete('/api/users/:id', auth, async (req, res) => {
   try {
+    if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' })
+    }
     await User.delete(req.params.id)
     res.json({ message: 'Deleted' })
   } catch (err) {
@@ -186,13 +265,15 @@ app.delete('/api/users/:id', auth, requireRole('admin'), async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 app.get('/api/spots', async (req, res) => {
   try {
-    const { lat, lng, maxPrice, minRating, vehicleSize } = req.query
+    const { lat, lng, maxPrice, minRating, vehicleSize, startTime, endTime } = req.query
     const spots = await Spot.search({
       lat: lat ? parseFloat(lat) : null,
       lng: lng ? parseFloat(lng) : null,
       maxPrice: maxPrice ? parseFloat(maxPrice) : null,
       minRating: minRating ? parseFloat(minRating) : null,
       vehicleSize: vehicleSize || null,
+      startTime: startTime || null,
+      endTime: endTime || null,
     })
     res.json(spots)
   } catch (err) {
@@ -231,6 +312,13 @@ app.get('/api/spots/:id', async (req, res) => {
 app.post('/api/spots', auth, requireRole('host', 'admin'), async (req, res) => {
   try {
     const { title, description, address, latitude, longitude, hourlyPrice, vehicleSize, rules, availableFrom, availableTo } = req.body
+    if (!title || !address || latitude == null || longitude == null || !hourlyPrice) {
+      return res.status(400).json({ message: 'title, address, latitude, longitude, hourlyPrice required' })
+    }
+    if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
+      return res.status(400).json({ message: 'latitude and longitude must be numbers' })
+    }
+    if (parseFloat(hourlyPrice) <= 0) return res.status(400).json({ message: 'hourlyPrice must be positive' })
     const spot = await Spot.create({
       hostId: req.user.id, title, description, address,
       latitude, longitude, hourlyPrice, vehicleSize, rules, availableFrom, availableTo,
@@ -267,6 +355,11 @@ app.patch('/api/spots/:id', auth, requireRole('host', 'admin'), async (req, res)
 
 app.delete('/api/spots/:id', auth, requireRole('host', 'admin'), async (req, res) => {
   try {
+    const spot = await Spot.findById(req.params.id)
+    if (!spot) return res.status(404).json({ message: 'Not found' })
+    if (spot.host_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' })
+    }
     await Spot.delete(req.params.id)
     res.json({ message: 'Deleted' })
   } catch (err) {
@@ -280,15 +373,21 @@ app.delete('/api/spots/:id', auth, requireRole('host', 'admin'), async (req, res
 app.post('/api/bookings', auth, requireRole('driver'), async (req, res) => {
   try {
     const { spotId, startTime, endTime } = req.body
+    if (!spotId || !startTime || !endTime) return res.status(400).json({ message: 'spotId, startTime, endTime required' })
+    const start = new Date(startTime), end = new Date(endTime)
+    if (isNaN(start) || isNaN(end)) return res.status(400).json({ message: 'Invalid date format' })
+    if (start >= end) return res.status(400).json({ message: 'endTime must be after startTime' })
+    if (start < new Date()) return res.status(400).json({ message: 'startTime must be in the future' })
+    const hours = (end - start) / 3600000
+    if (hours > 720) return res.status(400).json({ message: 'Booking cannot exceed 30 days' })
+
     const spot = await Spot.findById(spotId)
     if (!spot) return res.status(404).json({ message: 'Spot not found' })
 
     const conflict = await Booking.checkConflict(spotId, startTime, endTime)
     if (conflict) return res.status(409).json({ message: 'Time slot not available' })
 
-    const hours = (new Date(endTime) - new Date(startTime)) / 3600000
     const totalPrice = parseFloat((hours * parseFloat(spot.hourly_price)).toFixed(2))
-
     const booking = await Booking.create({ spotId, driverId: req.user.id, startTime, endTime, totalPrice })
     res.status(201).json(booking)
   } catch (err) {
@@ -302,6 +401,7 @@ app.get('/api/bookings/driver/:driverId', auth, async (req, res) => {
     if (req.user.id !== parseInt(req.params.driverId) && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' })
     }
+    await transitionBookings()
     const bookings = await Booking.getByDriver(req.params.driverId)
     res.json(bookings)
   } catch (err) {
@@ -314,6 +414,7 @@ app.get('/api/bookings/host/:hostId', auth, async (req, res) => {
     if (req.user.id !== parseInt(req.params.hostId) && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' })
     }
+    await transitionBookings()
     const bookings = await Booking.getByHost(req.params.hostId)
     res.json(bookings)
   } catch (err) {
@@ -323,6 +424,7 @@ app.get('/api/bookings/host/:hostId', auth, async (req, res) => {
 
 app.get('/api/bookings/:id', auth, async (req, res) => {
   try {
+    await transitionBookings()
     const booking = await Booking.findById(req.params.id)
     if (!booking) return res.status(404).json({ message: 'Not found' })
     if (booking.driver_id !== req.user.id && booking.host_id !== req.user.id && req.user.role !== 'admin') {
@@ -341,6 +443,15 @@ app.patch('/api/bookings/:id/cancel', auth, async (req, res) => {
     if (booking.driver_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' })
     if (!['pending', 'paid'].includes(booking.status)) return res.status(400).json({ message: 'Cannot cancel' })
     const updated = await Booking.updateStatus(req.params.id, 'cancelled')
+    // Issue Stripe refund if the booking was already paid
+    if (booking.stripe_payment_id) {
+      try {
+        await stripe.refunds.create({ payment_intent: booking.stripe_payment_id })
+        await createNotification(booking.driver_id, 'payment_refunded', `Refund issued for your booking at ${booking.spot_title}.`, `/driver/bookings/${booking.id}`)
+      } catch (refundErr) {
+        console.error('Stripe refund failed:', refundErr.message)
+      }
+    }
     await createNotification(booking.host_id, 'booking_cancelled', `Booking for ${booking.spot_title} was cancelled.`, `/host/bookings/${booking.id}`)
     res.json(updated)
   } catch (err) {
@@ -364,13 +475,22 @@ app.get('/api/bookings/check-conflict', async (req, res) => {
 app.post('/api/reviews', auth, async (req, res) => {
   try {
     const { bookingId, revieweeId, rating, comment } = req.body
+    if (!bookingId || !revieweeId || rating == null) return res.status(400).json({ message: 'bookingId, revieweeId, rating required' })
+    const r = parseInt(rating)
+    if (isNaN(r) || r < 1 || r > 5) return res.status(400).json({ message: 'rating must be 1–5' })
     const booking = await Booking.findById(bookingId)
     if (!booking) return res.status(404).json({ message: 'Booking not found' })
     if (booking.status !== 'completed') return res.status(400).json({ message: 'Booking not completed' })
+    if (revieweeId !== booking.host_id && revieweeId !== booking.driver_id) {
+      return res.status(400).json({ message: 'revieweeId must be a party to this booking' })
+    }
     const already = await Review.existsForBooking(bookingId, req.user.id)
     if (already) return res.status(409).json({ message: 'Review already submitted' })
     const review = await Review.create({ bookingId, reviewerId: req.user.id, revieweeId, rating, comment })
-    await createNotification(revieweeId, 'new_review', `You received a ${rating}★ review.`)
+    const reviewLink = revieweeId === booking.host_id
+      ? `/host/bookings/${bookingId}`
+      : `/driver/bookings/${bookingId}`
+    await createNotification(revieweeId, 'new_review', `You received a ${rating}★ review.`, reviewLink)
     res.status(201).json(review)
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -432,6 +552,16 @@ app.get('/api/transactions/:id', auth, async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id)
     if (!txn) return res.status(404).json({ message: 'Not found' })
+    if (req.user.role !== 'admin') {
+      const { rows } = await pool.query(
+        `SELECT b.driver_id, s.host_id FROM bookings b
+         JOIN spots s ON s.id = b.spot_id WHERE b.id = $1`,
+        [txn.booking_id]
+      )
+      if (!rows.length || (req.user.id !== rows[0].host_id && req.user.id !== rows[0].driver_id)) {
+        return res.status(403).json({ message: 'Forbidden' })
+      }
+    }
     res.json(txn)
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -446,6 +576,12 @@ const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000'
 app.post('/api/upload/avatar', auth, (req, res, next) => { req.uploadDir = 'uploads/avatars'; next() },
   upload.single('avatar'), async (req, res) => {
     try {
+      // Delete old avatar file if it was uploaded to this server
+      const existing = await User.findById(req.user.id)
+      if (existing?.avatar_url?.startsWith(SERVER_URL)) {
+        const oldFile = path.join(__dirname, existing.avatar_url.replace(SERVER_URL, ''))
+        fs.unlink(oldFile, () => {})
+      }
       const url = `${SERVER_URL}/uploads/avatars/${req.file.filename}`
       await User.update(req.user.id, { avatar_url: url })
       res.json({ url })
@@ -539,8 +675,13 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
 
     const intent = await stripe.paymentIntents.retrieve(stripePaymentId)
     if (intent.status !== 'succeeded') {
+      await createNotification(booking.driver_id, 'payment_failed', `Payment failed for ${booking.spot_title}. Please retry.`, `/driver/checkout/${bookingId}`)
       return res.status(400).json({ message: 'Payment not completed' })
     }
+
+    // Idempotency guard — if this Stripe payment was already processed, return success without duplicating
+    const existingTxn = await Transaction.getByStripeId(stripePaymentId)
+    if (existingTxn) return res.json({ message: 'Payment already confirmed' })
 
     await Booking.updateStatus(bookingId, 'paid', stripePaymentId)
     await Transaction.create({ bookingId, amount: booking.total_price, stripeId: stripePaymentId })
@@ -580,6 +721,63 @@ app.get('/api/admin/stats', auth, requireRole('admin'), async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }
+})
+
+app.get('/api/admin/bookings', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await transitionBookings()
+    const { status, limit = 100, offset = 0 } = req.query
+    let q = `SELECT b.*, s.title AS spot_title, d.name AS driver_name, h.name AS host_name
+             FROM bookings b
+             JOIN spots s ON s.id = b.spot_id
+             JOIN users d ON d.id = b.driver_id
+             JOIN users h ON h.id = s.host_id`
+    const vals = []
+    if (status) { q += ` WHERE b.status = $1`; vals.push(status) }
+    q += ` ORDER BY b.created_at DESC LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`
+    vals.push(parseInt(limit), parseInt(offset))
+    const { rows } = await pool.query(q, vals)
+    res.json(rows)
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════
+// KYC WHITELIST (admin only)
+// ══════════════════════════════════════════════════════════════════════════
+app.get('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT k.*, u.name AS added_by_name
+       FROM kyc_whitelist k
+       LEFT JOIN users u ON u.id = k.added_by
+       ORDER BY k.created_at DESC`
+    )
+    res.json(rows)
+  } catch (err) { res.status(500).json({ message: 'Server error' }) }
+})
+
+app.post('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { type, value, note } = req.body
+    if (!type || !value) return res.status(400).json({ message: 'type and value required' })
+    if (!['nid', 'license_plate'].includes(type)) return res.status(400).json({ message: 'type must be nid or license_plate' })
+    const { rows } = await pool.query(
+      `INSERT INTO kyc_whitelist (type, value, note, added_by) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (value) DO NOTHING RETURNING *`,
+      [type, value.trim().toUpperCase(), note || null, req.user.id]
+    )
+    if (!rows.length) return res.status(409).json({ message: 'This value already exists in the whitelist' })
+    res.status(201).json(rows[0])
+  } catch (err) { res.status(500).json({ message: 'Server error' }) }
+})
+
+app.delete('/api/admin/kyc/:id', auth, requireRole('admin'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM kyc_whitelist WHERE id = $1', [req.params.id])
+    res.json({ message: 'Deleted' })
+  } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
 
 // ══════════════════════════════════════════════════════════════════════════

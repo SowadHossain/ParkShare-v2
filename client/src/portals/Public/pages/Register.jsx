@@ -10,7 +10,7 @@ export default function Register() {
   const [params] = useSearchParams()
   const defaultRole = params.get('role') || 'driver'
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', role: defaultRole })
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', role: defaultRole, nid: '', license_plate: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -84,9 +84,37 @@ export default function Register() {
               placeholder="At least 6 characters" />
           </div>
 
+          {/* KYC fields */}
+          <div className="pt-2 pb-1">
+            <div className="font-mono text-[11px] text-muted tracking-wider mb-3 flex items-center gap-2">
+              <span className="flex-1 h-px bg-black/10" />
+              KYC VERIFICATION
+              <span className="flex-1 h-px bg-black/10" />
+            </div>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="font-mono text-[11px] text-muted tracking-wider">NATIONAL ID (NID)</label>
+                <input type="text" required value={form.nid || ''} onChange={e => set('nid', e.target.value)}
+                  className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20"
+                  placeholder="e.g. 1234567890" />
+              </div>
+              {(form.role === 'driver' || !form.role) && (
+                <div>
+                  <label className="font-mono text-[11px] text-muted tracking-wider">LICENSE PLATE</label>
+                  <input type="text" required value={form.license_plate || ''} onChange={e => set('license_plate', e.target.value.toUpperCase())}
+                    className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 font-mono tracking-widest"
+                    placeholder="e.g. DHK-1234" />
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-muted mt-3 leading-relaxed">
+              Your NID and license plate are verified against our approved database. Contact support if you have issues.
+            </p>
+          </div>
+
           <button type="submit" disabled={loading}
             className="w-full py-3.5 bg-ink text-paper rounded-full font-semibold text-sm hover:bg-ink/90 disabled:opacity-50 transition-colors mt-2">
-            {loading ? 'Creating account…' : 'Create account →'}
+            {loading ? 'Verifying & creating account…' : 'Create account →'}
           </button>
         </form>
 

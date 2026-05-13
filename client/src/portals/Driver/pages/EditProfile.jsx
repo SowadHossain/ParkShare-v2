@@ -8,7 +8,15 @@ import AvatarUpload from '../../../components/UI/AvatarUpload.jsx'
 export default function DriverEditProfile() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: user?.name || '', phone: user?.phone || '', bio: user?.bio || '' })
+  const [form, setForm] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    bio: user?.bio || '',
+    vehicle_make: user?.vehicle_make || '',
+    vehicle_model: user?.vehicle_model || '',
+    vehicle_color: user?.vehicle_color || '',
+    vehicle_size: user?.vehicle_size || '',
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -59,6 +67,58 @@ export default function DriverEditProfile() {
           <textarea rows={3} value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
             className="mt-1.5 w-full px-4 py-3 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 resize-none" />
         </div>
+
+        {/* Vehicle info */}
+        <div className="pt-2">
+          <div className="font-mono text-[11px] text-muted tracking-wider mb-3 flex items-center gap-2">
+            <span className="flex-1 h-px bg-black/10" />
+            YOUR VEHICLE
+            <span className="flex-1 h-px bg-black/10" />
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-mono text-[11px] text-muted tracking-wider">MAKE</label>
+                <input type="text" value={form.vehicle_make} placeholder="e.g. Toyota"
+                  onChange={e => setForm(f => ({ ...f, vehicle_make: e.target.value }))}
+                  className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20" />
+              </div>
+              <div>
+                <label className="font-mono text-[11px] text-muted tracking-wider">MODEL</label>
+                <input type="text" value={form.vehicle_model} placeholder="e.g. Corolla"
+                  onChange={e => setForm(f => ({ ...f, vehicle_model: e.target.value }))}
+                  className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-mono text-[11px] text-muted tracking-wider">COLOR</label>
+                <input type="text" value={form.vehicle_color} placeholder="e.g. White"
+                  onChange={e => setForm(f => ({ ...f, vehicle_color: e.target.value }))}
+                  className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20" />
+              </div>
+              <div>
+                <label className="font-mono text-[11px] text-muted tracking-wider">SIZE</label>
+                <select value={form.vehicle_size}
+                  onChange={e => setForm(f => ({ ...f, vehicle_size: e.target.value }))}
+                  className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20">
+                  <option value="">Select…</option>
+                  <option value="sedan">Sedan</option>
+                  <option value="suv">SUV</option>
+                  <option value="van">Van</option>
+                  <option value="truck">Truck</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="font-mono text-[11px] text-muted tracking-wider">LICENSE PLATE</label>
+              <input type="text" value={user?.license_plate || ''} disabled
+                className="mt-1.5 w-full px-4 py-3.5 bg-paper2 border border-black/10 rounded-xl text-sm text-muted font-mono tracking-widest cursor-not-allowed" />
+              <p className="text-[11px] text-muted mt-1">Plate is set during KYC and cannot be changed.</p>
+            </div>
+          </div>
+        </div>
+
         <button type="submit" disabled={loading}
           className="w-full py-3.5 bg-ink text-paper rounded-full font-semibold hover:bg-ink/90 disabled:opacity-50 transition-colors mt-2">
           {loading ? 'Saving…' : 'Save changes →'}

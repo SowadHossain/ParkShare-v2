@@ -3,7 +3,7 @@ import axios from 'axios'
 import { API } from '../../../context/AuthContext.jsx'
 import Loader from '../../../components/UI/Loader.jsx'
 import EmptyState from '../../../components/UI/EmptyState.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function DriverNotifications() {
   const [notifs, setNotifs] = useState([])
@@ -23,6 +23,9 @@ export default function DriverNotifications() {
 
   return (
     <div className="max-w-lg mx-auto px-6 py-10">
+      <Link to="/driver/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink transition-colors mb-6">
+        ← Dashboard
+      </Link>
       <div className="flex items-baseline justify-between mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
         {notifs.some(n => !n.is_read) && (

@@ -12,7 +12,7 @@ export default function BookSpot() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [spot, setSpot] = useState(null)
-  const [form, setForm] = useState({ startTime: '', endTime: '', vehicle: '' })
+  const [form, setForm] = useState({ startTime: '', endTime: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -70,13 +70,6 @@ export default function BookSpot() {
             onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
             className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20" />
         </div>
-        <div>
-          <label className="font-mono text-[11px] text-muted tracking-wider">VEHICLE (optional)</label>
-          <input type="text" value={form.vehicle || ''} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
-            placeholder="e.g. Toyota Axio · DHA-1294"
-            className="mt-1.5 w-full px-4 py-3.5 bg-white border border-black/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ink/20" />
-        </div>
-
         {hours > 0 && (
           <div className="p-4 bg-paper2 rounded-2xl">
             <div className="flex justify-between text-sm mb-2">

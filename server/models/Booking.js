@@ -61,7 +61,7 @@ const Booking = {
   async checkConflict(spotId, startTime, endTime, excludeBookingId = null) {
     let q = `SELECT id FROM bookings
              WHERE spot_id = $1
-               AND status NOT IN ('cancelled')
+               AND status IN ('paid', 'active', 'completed')
                AND start_time < $3
                AND end_time > $2`
     const vals = [spotId, startTime, endTime]
