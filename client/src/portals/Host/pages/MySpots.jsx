@@ -48,7 +48,7 @@ export default function MySpots() {
                   <div className="text-xs text-muted mb-3">{s.address}</div>
                   <div className="flex items-center justify-between text-xs text-muted">
                     <span>★ {parseFloat(s.avg_rating || 0).toFixed(1)} · {s.booking_count} bookings</span>
-                    <span className="font-mono font-bold text-ink">${parseFloat(s.hourly_price).toFixed(2)}/hr</span>
+                    <span className="font-mono font-bold text-ink">৳{parseFloat(s.hourly_price).toFixed(0)}/hr</span>
                   </div>
                   <div className="flex gap-2 mt-3">
                     <Link to={`/host/spots/${s.id}`} className="flex-1 py-2 text-center text-xs font-semibold bg-paper2 rounded-xl hover:bg-paper2/70 transition-colors">View</Link>

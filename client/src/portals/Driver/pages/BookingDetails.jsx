@@ -64,7 +64,7 @@ export default function BookingDetails() {
         )}
         <div className="flex justify-between pt-3 border-t border-black/10 font-bold">
           <span>Total paid</span>
-          <span className="font-mono">${parseFloat(booking.total_price).toFixed(2)}</span>
+          <span className="font-mono">৳{parseFloat(booking.total_price).toFixed(2)}</span>
         </div>
       </div>
 

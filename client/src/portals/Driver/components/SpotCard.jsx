@@ -36,7 +36,7 @@ function CompactCard({ spot, index }) {
         <div className="flex items-start justify-between gap-1">
           <div className="text-[13px] font-semibold leading-snug truncate flex-1">{spot.title}</div>
           <div className="text-right flex-shrink-0 ml-1">
-            <div className="font-mono text-[15px] font-bold leading-tight">${parseFloat(spot.hourly_price).toFixed(2)}</div>
+            <div className="font-mono text-[15px] font-bold leading-tight">৳{parseFloat(spot.hourly_price).toFixed(0)}</div>
             <div className="text-[9px] text-muted">/ hr</div>
           </div>
         </div>
@@ -71,7 +71,7 @@ export default function SpotCard({ spot, index = 0, highlighted = false, compact
         <div className="flex items-start justify-between gap-2">
           <div className="text-sm font-semibold leading-snug line-clamp-2">{spot.title}</div>
           <div className="text-right flex-shrink-0">
-            <div className="font-mono text-lg font-bold">${parseFloat(spot.hourly_price).toFixed(2)}</div>
+            <div className="font-mono text-lg font-bold">৳{parseFloat(spot.hourly_price).toFixed(0)}</div>
             <div className="text-[10px] text-muted">/ hr</div>
           </div>
         </div>

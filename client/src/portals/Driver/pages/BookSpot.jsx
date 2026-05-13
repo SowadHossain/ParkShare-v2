@@ -73,19 +73,19 @@ export default function BookSpot() {
         {hours > 0 && (
           <div className="p-4 bg-paper2 rounded-2xl">
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-muted">${parseFloat(spot.hourly_price).toFixed(2)} × {hours.toFixed(1)}h</span>
-              <span className="font-mono font-bold">${total}</span>
+              <span className="text-muted">৳{parseFloat(spot.hourly_price).toFixed(0)} × {hours.toFixed(1)}h</span>
+              <span className="font-mono font-bold">৳{total}</span>
             </div>
             <div className="flex justify-between font-bold pt-2 border-t border-black/10">
               <span>Total</span>
-              <span className="font-mono">${total}</span>
+              <span className="font-mono">৳{total}</span>
             </div>
           </div>
         )}
 
         <button type="submit" disabled={loading || hours <= 0}
           className="w-full py-4 bg-ink text-paper rounded-full font-semibold hover:bg-ink/90 disabled:opacity-50 transition-colors">
-          {loading ? 'Booking…' : `Continue to payment · $${total}`}
+          {loading ? 'Booking…' : `Continue to payment · ৳${total}`}
         </button>
       </form>
     </div>

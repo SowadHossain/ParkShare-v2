@@ -37,7 +37,7 @@ const DEMO_SPOTS = [
     address: '45 Road 47, Gulshan, Dhaka',
     latitude: 23.7961,
     longitude: 90.4113,
-    hourlyPrice: 3.50,
+    hourlyPrice: 150,
     vehicleSize: 'sedan',
     rules: 'No smoking. Quiet hours 10pm-7am. No repairs on property.',
     availableFrom: '06:00:00',
@@ -50,7 +50,7 @@ const DEMO_SPOTS = [
     address: '12 Road 10, Banani, Dhaka',
     latitude: 23.8103,
     longitude: 90.3735,
-    hourlyPrice: 4.00,
+    hourlyPrice: 200,
     vehicleSize: 'sedan',
     rules: 'Keep vehicle locked. No loud music.',
     availableFrom: '05:00:00',
@@ -63,7 +63,7 @@ const DEMO_SPOTS = [
     address: '88 Road 5, Dhanmondi, Dhaka',
     latitude: 23.7432,
     longitude: 90.3703,
-    hourlyPrice: 5.50,
+    hourlyPrice: 250,
     vehicleSize: 'suv',
     rules: 'No dripping oil. Check-in by 6pm.',
     availableFrom: '06:00:00',
@@ -130,11 +130,11 @@ async function seed() {
     const driverId = userMap['driver@demo.com']
 
     const bookings = [
-      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: '2026-05-13 09:00:00', endTime: '2026-05-13 14:00:00', totalPrice: 17.50, status: 'completed' },
-      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: '2026-05-13 15:00:00', endTime: '2026-05-13 18:00:00', totalPrice: 12.00, status: 'active' },
-      { spotId: spotMap['Large Garage - Dhanmondi'], driverId, startTime: '2026-05-14 08:00:00', endTime: '2026-05-14 17:00:00', totalPrice: 49.50, status: 'paid' },
-      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: '2026-05-15 10:00:00', endTime: '2026-05-15 12:00:00', totalPrice: 7.00, status: 'pending' },
-      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: '2026-05-13 08:00:00', endTime: '2026-05-13 10:00:00', totalPrice: 8.00, status: 'completed' }
+      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: '2026-05-13 09:00:00', endTime: '2026-05-13 14:00:00', totalPrice: 750, status: 'completed' },
+      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: '2026-05-13 15:00:00', endTime: '2026-05-13 18:00:00', totalPrice: 600, status: 'active' },
+      { spotId: spotMap['Large Garage - Dhanmondi'], driverId, startTime: '2026-05-14 08:00:00', endTime: '2026-05-14 17:00:00', totalPrice: 2250, status: 'paid' },
+      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: '2026-05-15 10:00:00', endTime: '2026-05-15 12:00:00', totalPrice: 300, status: 'pending' },
+      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: '2026-05-13 08:00:00', endTime: '2026-05-13 10:00:00', totalPrice: 400, status: 'completed' }
     ]
 
     const bookingMap = {}
@@ -146,7 +146,7 @@ async function seed() {
         [booking.spotId, booking.driverId, booking.startTime, booking.endTime, booking.totalPrice, booking.status]
       )
       bookingMap[res.rows[0].id] = booking
-      console.log(`  ✅ Booking: ${booking.status} - $${booking.totalPrice}`)
+      console.log(`  ✅ Booking: ${booking.status} - ৳${booking.totalPrice}`)
     }
 
     // Seed transactions
@@ -158,7 +158,7 @@ async function seed() {
            VALUES ($1, $2, 'paid')`,
           [bookingId, booking.totalPrice]
         )
-        console.log(`  ✅ Transaction: $${booking.totalPrice}`)
+        console.log(`  ✅ Transaction: ৳${booking.totalPrice}`)
       }
     }
 

@@ -79,7 +79,7 @@ export default function Payment() {
     <div className="max-w-md mx-auto px-6 py-10">
       <div className="font-mono text-xs text-muted tracking-wider mb-2">PAYMENT</div>
       <h1 className="text-3xl font-bold tracking-tight mb-2">Secure payment.</h1>
-      <p className="text-muted text-sm mb-8">{booking.spot_title} · ${parseFloat(booking.total_price).toFixed(2)}</p>
+      <p className="text-muted text-sm mb-8">{booking.spot_title} · ৳{parseFloat(booking.total_price).toFixed(2)}</p>
       <Elements stripe={stripePromise}>
         <PayForm
           bookingId={bookingId}

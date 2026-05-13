@@ -89,7 +89,7 @@ export default function DriverSpotDetails() {
             {[
               { ic: '⌂', t: `Fits ${spot.vehicle_size}`, s: 'Vehicle size' },
               { ic: '☂', t: spot.available_from ? `${spot.available_from} – ${spot.available_to}` : 'Check availability', s: 'Available hours' },
-              { ic: '♦', t: `$${parseFloat(spot.hourly_price).toFixed(2)}/hr`, s: 'Hourly rate' },
+              { ic: '♦', t: `৳${parseFloat(spot.hourly_price).toFixed(0)}/hr`, s: 'Hourly rate' },
             ].map(f => (
               <div key={f.t} className="p-4 bg-white border border-black/10 rounded-2xl">
                 <div className="text-2xl mb-2">{f.ic}</div>
@@ -142,7 +142,7 @@ export default function DriverSpotDetails() {
         {/* Booking card */}
         <div className="sticky top-4 bg-white border border-black/10 rounded-2xl p-5 shadow-sm">
           <div className="flex items-baseline gap-2 mb-5">
-            <span className="font-mono text-4xl font-bold">${parseFloat(spot.hourly_price).toFixed(2)}</span>
+            <span className="font-mono text-4xl font-bold">৳{parseFloat(spot.hourly_price).toFixed(0)}</span>
             <span className="text-sm text-muted">/ hour</span>
           </div>
           {user ? (

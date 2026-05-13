@@ -46,7 +46,7 @@ export default function BookingCard({ booking }) {
           {fmt(start)} · {fmtT(start)} – {fmtT(end)}
         </div>
         <div className={`font-mono text-sm font-bold ${isDark ? 'text-lime' : ''}`}>
-          ${parseFloat(booking.total_price).toFixed(2)}
+          ৳{parseFloat(booking.total_price).toFixed(2)}
         </div>
       </div>
     </Link>

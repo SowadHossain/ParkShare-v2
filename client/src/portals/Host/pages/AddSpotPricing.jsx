@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import Stepper from '../../../components/UI/Stepper.jsx'
 
 const STEPS = ['Location', 'Details', 'Pricing', 'Review']
-const SUGGESTED = [1.50, 2.00, 2.50, 3.00, 4.00, 5.00]
+const SUGGESTED = [50, 100, 150, 200, 300, 500]
 
 export default function AddSpotPricing() {
   const navigate = useNavigate()
-  const [price, setPrice] = useState(3.00)
+  const [price, setPrice] = useState(100)
 
   function handleContinue(e) {
     e.preventDefault()
@@ -31,11 +31,11 @@ export default function AddSpotPricing() {
 
         <form onSubmit={handleContinue} className="flex flex-col gap-6">
           <div className="text-center">
-            <div className="font-mono text-6xl font-bold tracking-tight">${price.toFixed(2)}</div>
+            <div className="font-mono text-6xl font-bold tracking-tight">৳{price.toFixed(0)}</div>
             <div className="text-muted text-sm mt-1">per hour</div>
           </div>
 
-          <input type="range" min={0.5} max={10} step={0.5}
+          <input type="range" min={10} max={1000} step={10}
             value={price} onChange={e => setPrice(parseFloat(e.target.value))}
             className="w-full accent-ink" />
 
@@ -47,7 +47,7 @@ export default function AddSpotPricing() {
                   className={`px-4 py-2 rounded-xl text-sm font-mono font-semibold border transition-all ${
                     price === p ? 'bg-ink text-paper border-ink' : 'bg-white text-ink border-black/10 hover:border-black/30'
                   }`}>
-                  ${p.toFixed(2)}
+                  ৳{p.toFixed(0)}
                 </button>
               ))}
             </div>
@@ -55,7 +55,7 @@ export default function AddSpotPricing() {
 
           <div className="p-4 bg-lime rounded-2xl">
             <div className="font-mono text-xs tracking-wider mb-1">ESTIMATED MONTHLY EARNINGS</div>
-            <div className="font-mono text-3xl font-bold">${monthlyEst}</div>
+            <div className="font-mono text-3xl font-bold">৳{monthlyEst}</div>
             <div className="text-sm mt-1 opacity-70">Based on 8h/day · 20 days · 85% of rate (after 15% fee)</div>
           </div>
 

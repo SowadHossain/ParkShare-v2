@@ -51,7 +51,7 @@ export default function MapView({ spots = [], center, onCenterChange, isLoaded }
           position={{ lat: parseFloat(spot.latitude), lng: parseFloat(spot.longitude) }}
           onClick={() => setSelected(spot)}
           label={{
-            text: `$${parseFloat(spot.hourly_price).toFixed(0)}`,
+            text: `৳${parseFloat(spot.hourly_price).toFixed(0)}`,
             color: '#0E0E0C',
             fontSize: '12px',
             fontWeight: '700',
@@ -76,7 +76,7 @@ export default function MapView({ spots = [], center, onCenterChange, isLoaded }
             <div style={{ fontWeight: 700, fontSize: 13 }}>{selected.title}</div>
             <div style={{ fontSize: 11, color: '#8A8275', marginTop: 2 }}>{selected.address}</div>
             <div style={{ fontFamily: 'JetBrains Mono', fontSize: 16, fontWeight: 700, marginTop: 6 }}>
-              ${parseFloat(selected.hourly_price).toFixed(2)}/hr
+              ৳{parseFloat(selected.hourly_price).toFixed(0)}/hr
             </div>
             <div style={{ fontSize: 11, color: '#8A8275', marginTop: 2 }}>★ {parseFloat(selected.avg_rating || 0).toFixed(1)}</div>
             <button

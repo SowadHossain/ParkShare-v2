@@ -58,7 +58,7 @@ export default function CheckoutReview() {
         </div>
         <div className="mt-4 pt-4 border-t border-black/10 flex justify-between font-bold">
           <span>Total</span>
-          <span className="font-mono text-lg">${parseFloat(booking.total_price).toFixed(2)}</span>
+          <span className="font-mono text-lg">৳{parseFloat(booking.total_price).toFixed(2)}</span>
         </div>
       </div>
 
@@ -69,7 +69,7 @@ export default function CheckoutReview() {
       <div className="flex flex-col gap-3">
         <button onClick={() => navigate(`/driver/checkout/${bookingId}/pay`)}
           className="w-full py-4 bg-ink text-paper rounded-full font-semibold hover:bg-ink/90 transition-colors">
-          Pay now · ${parseFloat(booking.total_price).toFixed(2)} →
+          Pay now · ৳{parseFloat(booking.total_price).toFixed(2)} →
         </button>
         <Link to="/driver/bookings" className="text-center text-sm text-muted hover:text-ink transition-colors">Cancel</Link>
       </div>

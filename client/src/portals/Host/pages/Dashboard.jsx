@@ -123,7 +123,7 @@ export default function HostDashboard() {
                       </div>
                     </div>
                     <StatusBadge status={b.status} />
-                    <div className="font-mono text-sm font-bold">${parseFloat(b.total_price).toFixed(2)}</div>
+                    <div className="font-mono text-sm font-bold">৳{parseFloat(b.total_price).toFixed(2)}</div>
                   </Link>
                 ))}
               </div>

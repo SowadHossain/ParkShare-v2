@@ -57,7 +57,7 @@ export default function HostBookings() {
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <StatusBadge status={b.status} />
-                    <div className="font-mono text-sm font-bold">${parseFloat(b.total_price).toFixed(2)}</div>
+                    <div className="font-mono text-sm font-bold">৳{parseFloat(b.total_price).toFixed(2)}</div>
                   </div>
                 </Link>
               ))}

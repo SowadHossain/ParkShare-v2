@@ -42,8 +42,8 @@ export default function Earnings() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-3 mb-8">
-        <EarningsCard label="TOTAL EARNED" value={`$${total.toFixed(2)}`} sub="lifetime" tone="dark" />
-        <EarningsCard label="PENDING" value={`$${pending.toFixed(2)}`} sub="from active bookings" />
+        <EarningsCard label="TOTAL EARNED" value={`৳${total.toFixed(2)}`} sub="lifetime" tone="dark" />
+        <EarningsCard label="PENDING" value={`৳${pending.toFixed(2)}`} sub="from active bookings" />
         <EarningsCard label="TRANSACTIONS" value={txns.length} sub="all time" />
       </div>
 
@@ -54,7 +54,7 @@ export default function Earnings() {
         </div>
         {loading ? <Loader size="sm" />
           : filtered.length === 0
-          ? <EmptyState icon="$" title="No transactions" message="Transactions will appear here after bookings are paid." />
+          ? <EmptyState icon="৳" title="No transactions" message="Transactions will appear here after bookings are paid." />
           : <div>{filtered.map(t => <TransactionRow key={t.id} txn={t} />)}</div>
         }
       </div>

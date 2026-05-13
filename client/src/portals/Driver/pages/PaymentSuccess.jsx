@@ -27,7 +27,7 @@ export default function PaymentSuccess() {
           <div className="font-mono text-xs text-muted mt-3">
             {new Date(booking.start_time).toLocaleString()} → {new Date(booking.end_time).toLocaleTimeString()}
           </div>
-          <div className="font-mono text-lg font-bold mt-2">${parseFloat(booking.total_price).toFixed(2)} paid</div>
+          <div className="font-mono text-lg font-bold mt-2">৳{parseFloat(booking.total_price).toFixed(2)} paid</div>
         </div>
       )}
       <div className="flex flex-col gap-3">

@@ -14,7 +14,7 @@ const SIDEBAR_LINKS = [
   { to: '/host/dashboard',     label: 'Dashboard',     ic: '▭' },
   { to: '/host/spots',         label: 'My spots',      ic: '▤' },
   { to: '/host/bookings',      label: 'Bookings',      ic: '◷' },
-  { to: '/host/earnings',      label: 'Earnings',      ic: '$' },
+  { to: '/host/earnings',      label: 'Earnings',      ic: '৳' },
   { to: '/host/notifications', label: 'Notifications', ic: '♥' },
   { to: '/host/profile',       label: 'Profile',       ic: '◉' },
 ]

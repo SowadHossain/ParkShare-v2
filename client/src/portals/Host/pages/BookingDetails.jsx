@@ -48,7 +48,7 @@ export default function HostBookingDetails() {
         ))}
         <div className="flex justify-between pt-3 border-t border-black/10 font-bold">
           <span>Earned</span>
-          <span className="font-mono">${(parseFloat(booking.total_price) * 0.85).toFixed(2)}</span>
+          <span className="font-mono">৳{(parseFloat(booking.total_price) * 0.85).toFixed(2)}</span>
         </div>
       </div>
       {isCompleted && (

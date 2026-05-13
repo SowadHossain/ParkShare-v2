@@ -37,7 +37,7 @@ export default function HostSpotDetails() {
 
       <div className="bg-white border border-black/10 rounded-2xl p-5 mb-5 space-y-3 text-sm">
         {[
-          ['Price', `$${parseFloat(spot.hourly_price).toFixed(2)}/hr`],
+          ['Price', `৳${parseFloat(spot.hourly_price).toFixed(0)}/hr`],
           ['Vehicle size', spot.vehicle_size],
           ['Available', spot.available_from ? `${spot.available_from} – ${spot.available_to}` : 'Not set'],
           ['Rating', `★ ${parseFloat(spot.avg_rating || 0).toFixed(1)} · ${spot.review_count} reviews`],

@@ -685,7 +685,7 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
 
     await Booking.updateStatus(bookingId, 'paid', stripePaymentId)
     await Transaction.create({ bookingId, amount: booking.total_price, stripeId: stripePaymentId })
-    await createNotification(booking.host_id, 'new_booking', `New booking for ${booking.spot_title} — $${booking.total_price}`, `/host/bookings/${bookingId}`)
+    await createNotification(booking.host_id, 'new_booking', `New booking for ${booking.spot_title} — ৳${booking.total_price}`, `/host/bookings/${bookingId}`)
     await createNotification(booking.driver_id, 'payment_confirmed', `Payment confirmed for ${booking.spot_title}`, `/driver/bookings/${bookingId}`)
 
     res.json({ message: 'Payment confirmed' })

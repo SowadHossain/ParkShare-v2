@@ -76,7 +76,7 @@ export default function AdminUserDetails() {
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={b.status} />
-                  <span className="font-mono text-xs">${parseFloat(b.total_price).toFixed(2)}</span>
+                  <span className="font-mono text-xs">৳{parseFloat(b.total_price).toFixed(2)}</span>
                 </div>
               </div>
             ))}

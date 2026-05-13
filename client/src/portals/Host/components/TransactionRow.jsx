@@ -14,7 +14,7 @@ export default function TransactionRow({ txn }) {
       </div>
       <StatusBadge status={txn.status} />
       <div className={`font-mono text-sm font-bold flex-shrink-0 ${txn.status === 'refunded' ? 'text-red-600' : 'text-ink'}`}>
-        {txn.status === 'refunded' ? '-' : '+'}${parseFloat(txn.amount).toFixed(2)}
+        {txn.status === 'refunded' ? '-' : '+'}৳{parseFloat(txn.amount).toFixed(2)}
       </div>
     </Link>
   )
