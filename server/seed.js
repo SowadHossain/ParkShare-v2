@@ -1,6 +1,6 @@
 require('dotenv').config()
 const bcrypt = require('bcrypt')
-const pool = require('./config/db')
+const supabase = require('./config/supabase')
 
 const DEMO_USERS = [
   {
@@ -87,11 +87,14 @@ async function seed() {
     // Seed KYC whitelist
     console.log('🪪 Seeding KYC whitelist...')
     for (const entry of KYC_WHITELIST) {
-      await pool.query(
-        `INSERT INTO kyc_whitelist (type, value, note) VALUES ($1, $2, $3) ON CONFLICT (value) DO NOTHING`,
-        [entry.type, entry.value.toUpperCase(), entry.note]
-      )
-      console.log(`  ✅ ${entry.type.toUpperCase()}: ${entry.value}`)
+      const { error } = await supabase
+        .from('kyc_whitelist')
+        .upsert(
+          { type: entry.type, value: entry.value.toUpperCase(), note: entry.note },
+          { onConflict: 'value', ignoreDuplicates: true }
+        )
+      if (error) console.warn(`  ⚠️  KYC upsert warning: ${error.message}`)
+      else console.log(`  ✅ ${entry.type.toUpperCase()}: ${entry.value}`)
     }
 
     // Seed users
@@ -99,24 +102,49 @@ async function seed() {
     const userMap = {}
     for (const user of DEMO_USERS) {
       const passwordHash = await bcrypt.hash(user.password, 10)
-      const res = await pool.query(
-        `INSERT INTO users (name, email, password_hash, phone, bio, role, onboarded)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
-         RETURNING id, email, role`,
-        [user.name, user.email, passwordHash, user.phone || null, user.bio || null, user.role, user.onboarded]
-      )
-      userMap[user.email] = res.rows[0].id
-      console.log(`  ✅ ${user.role.toUpperCase()}: ${user.email}`)
+
+      const { data: existing } = await supabase
+        .from('users')
+        .select('id, email, role')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      if (existing) {
+        await supabase.from('users').update({ password_hash: passwordHash }).eq('email', user.email)
+        userMap[user.email] = existing.id
+        console.log(`  ✅ ${user.role.toUpperCase()}: ${user.email} (updated)`)
+      } else {
+        const { data: created, error } = await supabase
+          .from('users')
+          .insert({
+            name:          user.name,
+            email:         user.email,
+            password_hash: passwordHash,
+            phone:         user.phone || null,
+            bio:           user.bio   || null,
+            role:          user.role,
+            onboarded:     user.onboarded,
+          })
+          .select('id, email, role')
+          .single()
+        if (error) throw error
+        userMap[user.email] = created.id
+        console.log(`  ✅ ${user.role.toUpperCase()}: ${user.email}`)
+      }
     }
-    await pool.query(`UPDATE users SET onboarded = true WHERE onboarded = false`)
+
+    // Ensure all users are onboarded
+    await supabase.from('users').update({ onboarded: true }).eq('onboarded', false)
 
     // Skip spots/bookings/reviews if demo data already exists
-    const { rows: existingSpots } = await pool.query(
-      `SELECT id FROM spots WHERE host_id = $1 LIMIT 1`,
-      [userMap['host@demo.com']]
-    )
-    if (existingSpots.length > 0) {
+    const hostId = userMap['host@demo.com']
+    const { data: existingSpots } = await supabase
+      .from('spots')
+      .select('id')
+      .eq('host_id', hostId)
+      .limit(1)
+
+    if (existingSpots?.length > 0) {
       console.log('\n⏭️  Demo spots/bookings/reviews already exist — skipping.')
       console.log('\n✨ Seed complete (existing data preserved)\n')
       return
@@ -126,14 +154,26 @@ async function seed() {
     console.log('\n🅿️  Seeding spots...')
     const spotMap = {}
     for (const spot of DEMO_SPOTS) {
-      const hostId = userMap[spot.hostEmail]
-      const res = await pool.query(
-        `INSERT INTO spots (host_id, title, description, address, latitude, longitude, hourly_price, vehicle_size, rules, available_from, available_to, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
-         RETURNING id, title`,
-        [hostId, spot.title, spot.description, spot.address, spot.latitude, spot.longitude, spot.hourlyPrice, spot.vehicleSize, spot.rules, spot.availableFrom, spot.availableTo]
-      )
-      spotMap[spot.title] = res.rows[0].id
+      const { data, error } = await supabase
+        .from('spots')
+        .insert({
+          host_id:        userMap[spot.hostEmail],
+          title:          spot.title,
+          description:    spot.description,
+          address:        spot.address,
+          latitude:       spot.latitude,
+          longitude:      spot.longitude,
+          hourly_price:   spot.hourlyPrice,
+          vehicle_size:   spot.vehicleSize,
+          rules:          spot.rules,
+          available_from: spot.availableFrom,
+          available_to:   spot.availableTo,
+          is_active:      true,
+        })
+        .select('id, title')
+        .single()
+      if (error) throw error
+      spotMap[spot.title] = data.id
       console.log(`  ✅ ${spot.title}`)
     }
 
@@ -148,65 +188,63 @@ async function seed() {
       return t.toISOString()
     }
 
-    const bookings = [
-      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: d(-2, 9), endTime: d(-2, 14), totalPrice: 750, status: 'completed' },
-      { spotId: spotMap['Secure Parking - Banani'], driverId, startTime: d(-1, 8), endTime: d(-1, 10), totalPrice: 400, status: 'completed' },
-      { spotId: spotMap['Large Garage - Dhanmondi'], driverId, startTime: d(1, 8), endTime: d(1, 17), totalPrice: 2250, status: 'paid' },
-      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: d(2, 10), endTime: d(2, 12), totalPrice: 300, status: 'pending' },
+    const bookingDefs = [
+      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: d(-2, 9),  endTime: d(-2, 14), totalPrice: 750,  status: 'completed' },
+      { spotId: spotMap['Secure Parking - Banani'],      driverId, startTime: d(-1, 8),  endTime: d(-1, 10), totalPrice: 400,  status: 'completed' },
+      { spotId: spotMap['Large Garage - Dhanmondi'],     driverId, startTime: d(1,  8),  endTime: d(1,  17), totalPrice: 2250, status: 'paid'      },
+      { spotId: spotMap['Spacious Driveway in Gulshan'], driverId, startTime: d(2,  10), endTime: d(2,  12), totalPrice: 300,  status: 'pending'   },
     ]
 
     const bookingIds = []
-    for (const booking of bookings) {
-      const res = await pool.query(
-        `INSERT INTO bookings (spot_id, driver_id, start_time, end_time, total_price, status)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id`,
-        [booking.spotId, booking.driverId, booking.startTime, booking.endTime, booking.totalPrice, booking.status]
-      )
-      bookingIds.push({ id: res.rows[0].id, ...booking })
-      console.log(`  ✅ Booking: ${booking.status} - ৳${booking.totalPrice}`)
+    for (const b of bookingDefs) {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert({
+          spot_id:     b.spotId,
+          driver_id:   b.driverId,
+          start_time:  b.startTime,
+          end_time:    b.endTime,
+          total_price: b.totalPrice,
+          status:      b.status,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      bookingIds.push({ id: data.id, ...b })
+      console.log(`  ✅ Booking: ${b.status} - ৳${b.totalPrice}`)
     }
 
     // Seed transactions for paid/completed bookings
     console.log('\n💳 Seeding transactions...')
-    for (const booking of bookingIds) {
-      if (booking.status === 'paid' || booking.status === 'completed') {
-        await pool.query(
-          `INSERT INTO transactions (booking_id, amount, status) VALUES ($1, $2, 'paid')`,
-          [booking.id, booking.totalPrice]
-        )
-        console.log(`  ✅ Transaction: ৳${booking.totalPrice}`)
+    for (const b of bookingIds) {
+      if (b.status === 'paid' || b.status === 'completed') {
+        const { error } = await supabase
+          .from('transactions')
+          .insert({ booking_id: b.id, amount: b.totalPrice, status: 'paid' })
+        if (error) console.warn(`  ⚠️  Transaction warning: ${error.message}`)
+        else console.log(`  ✅ Transaction: ৳${b.totalPrice}`)
       }
     }
 
     // Seed reviews (only for completed bookings)
     console.log('\n⭐ Seeding reviews...')
-    const hostId = userMap['host@demo.com']
     const completedBookings = bookingIds.filter(b => b.status === 'completed')
 
-    await pool.query(
-      `INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-       VALUES ($1, $2, $3, 5, 'Amazing spot! Secure and clean. Very responsive host.')
-       ON CONFLICT (booking_id, reviewer_id) DO NOTHING`,
-      [completedBookings[0].id, driverId, hostId]
-    )
-    console.log(`  ✅ Driver ⭐⭐⭐⭐⭐ → Host`)
+    const reviews = [
+      { booking_id: completedBookings[0].id, reviewer_id: driverId,  reviewee_id: hostId,   rating: 5, comment: 'Amazing spot! Secure and clean. Very responsive host.' },
+      { booking_id: completedBookings[0].id, reviewer_id: hostId,    reviewee_id: driverId,  rating: 5, comment: 'Excellent driver! Very respectful, left the spot clean.' },
+      { booking_id: completedBookings[1].id, reviewer_id: driverId,  reviewee_id: hostId,   rating: 4, comment: 'Good spot. Location is convenient.' },
+    ]
 
-    await pool.query(
-      `INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-       VALUES ($1, $2, $3, 5, 'Excellent driver! Very respectful, left the spot clean.')
-       ON CONFLICT (booking_id, reviewer_id) DO NOTHING`,
-      [completedBookings[0].id, hostId, driverId]
-    )
-    console.log(`  ✅ Host ⭐⭐⭐⭐⭐ → Driver`)
-
-    await pool.query(
-      `INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-       VALUES ($1, $2, $3, 4, 'Good spot. Location is convenient.')
-       ON CONFLICT (booking_id, reviewer_id) DO NOTHING`,
-      [completedBookings[1].id, driverId, hostId]
-    )
-    console.log(`  ✅ Driver ⭐⭐⭐⭐ → Host`)
+    for (const rv of reviews) {
+      const { error } = await supabase
+        .from('reviews')
+        .upsert(rv, { onConflict: 'booking_id,reviewer_id', ignoreDuplicates: true })
+      if (error) console.warn(`  ⚠️  Review warning: ${error.message}`)
+    }
+    console.log('  ✅ Driver ⭐⭐⭐⭐⭐ → Host')
+    console.log('  ✅ Host ⭐⭐⭐⭐⭐ → Driver')
+    console.log('  ✅ Driver ⭐⭐⭐⭐ → Host')
 
     console.log('\n✨ All demo data seeded successfully!\n')
     console.log('📋 Test Credentials:')
@@ -220,8 +258,6 @@ async function seed() {
     console.error('❌ Seed failed:', err.message)
     console.error(err)
     process.exit(1)
-  } finally {
-    await pool.end()
   }
 }
 

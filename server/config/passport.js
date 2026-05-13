@@ -1,29 +1,43 @@
 const passport = require('passport')
 const GoogleStrategy = require('passport-google-oauth20').Strategy
-const pool = require('./db')
+const supabase = require('./supabase')
 
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientID:     process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${process.env.SERVER_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+      callbackURL:  `${process.env.SERVER_URL || 'http://localhost:5000'}/api/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails[0].value
-        const name = profile.displayName
+        const email    = profile.emails[0].value
+        const name     = profile.displayName
         const googleId = profile.id
 
-        // upsert user
-        const { rows } = await pool.query(
-          `INSERT INTO users (name, email, google_id, role, onboarded)
-           VALUES ($1, $2, $3, 'driver', false)
-           ON CONFLICT (google_id) DO UPDATE SET name = EXCLUDED.name
-           RETURNING *`,
-          [name, email, googleId]
-        )
-        return done(null, rows[0])
+        const { data: existing } = await supabase
+          .from('users')
+          .select('*')
+          .eq('google_id', googleId)
+          .maybeSingle()
+
+        if (existing) {
+          const { data: updated } = await supabase
+            .from('users')
+            .update({ name })
+            .eq('google_id', googleId)
+            .select()
+            .single()
+          return done(null, updated)
+        }
+
+        const { data: created, error } = await supabase
+          .from('users')
+          .insert({ name, email, google_id: googleId, role: 'driver', onboarded: false })
+          .select()
+          .single()
+        if (error) return done(error)
+        return done(null, created)
       } catch (err) {
         return done(err)
       }

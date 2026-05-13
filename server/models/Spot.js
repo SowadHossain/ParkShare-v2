@@ -1,122 +1,81 @@
-const pool = require('../config/db')
+const supabase = require('../config/supabase')
 
 const Spot = {
   async findById(id) {
-    const { rows } = await pool.query(
-      `SELECT s.*, u.name AS host_name, u.phone AS host_phone,
-              COALESCE(AVG(r.rating), 0) AS avg_rating,
-              COUNT(r.id) AS review_count
-       FROM spots s
-       JOIN users u ON u.id = s.host_id
-       LEFT JOIN bookings b ON b.spot_id = s.id
-       LEFT JOIN reviews r ON r.booking_id = b.id
-       WHERE s.id = $1
-       GROUP BY s.id, u.name, u.phone`,
-      [id]
-    )
-    return rows[0]
+    const { data, error } = await supabase.from('v_spots').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async create({ hostId, title, description, address, latitude, longitude, hourlyPrice, vehicleSize, rules, availableFrom, availableTo }) {
-    const { rows } = await pool.query(
-      `INSERT INTO spots (host_id, title, description, address, latitude, longitude, hourly_price, vehicle_size, rules, available_from, available_to)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [hostId, title, description, address, latitude, longitude, hourlyPrice, vehicleSize || 'sedan', rules, availableFrom || null, availableTo || null]
-    )
-    return rows[0]
+    const { data, error } = await supabase.from('spots').insert({
+      host_id: hostId,
+      title,
+      description,
+      address,
+      latitude,
+      longitude,
+      hourly_price: hourlyPrice,
+      vehicle_size: vehicleSize || 'sedan',
+      rules,
+      available_from: availableFrom || null,
+      available_to: availableTo || null,
+    }).select().single()
+    if (error) throw error
+    return data
   },
 
   async update(id, fields) {
     const allowed = ['title', 'description', 'address', 'latitude', 'longitude', 'hourly_price', 'vehicle_size', 'rules', 'available_from', 'available_to', 'is_active']
-    const sets = []
-    const vals = []
-    let i = 1
+    const updateObj = {}
     for (const [key, val] of Object.entries(fields)) {
       const col = key.replace(/([A-Z])/g, '_$1').toLowerCase()
-      if (allowed.includes(col)) {
-        sets.push(`${col} = $${i++}`)
-        vals.push(val)
-      }
+      if (allowed.includes(col)) updateObj[col] = val
     }
-    if (!sets.length) return null
-    vals.push(id)
-    const { rows } = await pool.query(
-      `UPDATE spots SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`,
-      vals
-    )
-    return rows[0]
+    if (!Object.keys(updateObj).length) return null
+    const { data, error } = await supabase.from('spots').update(updateObj).eq('id', id).select().single()
+    if (error) throw error
+    return data
   },
 
   async delete(id) {
-    await pool.query('DELETE FROM spots WHERE id = $1', [id])
+    const { error } = await supabase.from('spots').delete().eq('id', id)
+    if (error) throw error
   },
 
   async getByHost(hostId) {
-    const { rows } = await pool.query(
-      `SELECT s.*, COALESCE(AVG(r.rating),0) AS avg_rating, COUNT(DISTINCT b.id) AS booking_count
-       FROM spots s
-       LEFT JOIN bookings b ON b.spot_id = s.id
-       LEFT JOIN reviews r ON r.booking_id = b.id
-       WHERE s.host_id = $1
-       GROUP BY s.id ORDER BY s.created_at DESC`,
-      [hostId]
-    )
-    return rows
+    const { data, error } = await supabase
+      .from('v_spots')
+      .select('*')
+      .eq('host_id', hostId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
   },
 
   async search({ lat, lng, maxPrice, minRating, vehicleSize, startTime, endTime, radius = 5 } = {}) {
-    let q = `
-      SELECT s.*, u.name AS host_name,
-             COALESCE(AVG(r.rating),0) AS avg_rating,
-             COUNT(r.id) AS review_count
-      FROM spots s
-      JOIN users u ON u.id = s.host_id
-      LEFT JOIN bookings b ON b.spot_id = s.id
-      LEFT JOIN reviews r ON r.booking_id = b.id
-      WHERE s.is_active = true`
-    const vals = []
-    let i = 1
-
-    if (lat && lng) {
-      const latDelta = radius / 111.0
-      const lngDelta = radius / (111.0 * Math.cos((lat * Math.PI) / 180))
-      q += ` AND s.latitude BETWEEN $${i} AND $${i + 1} AND s.longitude BETWEEN $${i + 2} AND $${i + 3}`
-      vals.push(lat - latDelta, lat + latDelta, lng - lngDelta, lng + lngDelta)
-      i += 4
-    }
-    if (maxPrice) { q += ` AND s.hourly_price <= $${i++}`; vals.push(maxPrice) }
-    if (vehicleSize) { q += ` AND s.vehicle_size = $${i++}`; vals.push(vehicleSize) }
-
-    // Exclude spots that have a confirmed booking overlapping the requested window
-    if (startTime && endTime) {
-      q += ` AND s.id NOT IN (
-        SELECT spot_id FROM bookings
-        WHERE status IN ('paid', 'active')
-          AND start_time < $${i + 1} AND end_time > $${i}
-      )`
-      vals.push(startTime, endTime)
-      i += 2
-    }
-
-    q += ` GROUP BY s.id, u.name`
-    if (minRating) { q += ` HAVING COALESCE(AVG(r.rating),0) >= $${i++}`; vals.push(minRating) }
-    q += ' ORDER BY avg_rating DESC, s.hourly_price ASC LIMIT 100'
-
-    const { rows } = await pool.query(q, vals)
-    return rows
+    const { data, error } = await supabase.rpc('search_spots', {
+      p_lat:          lat          || null,
+      p_lng:          lng          || null,
+      p_max_price:    maxPrice     || null,
+      p_min_rating:   minRating    || null,
+      p_vehicle_size: vehicleSize  || null,
+      p_start_time:   startTime    || null,
+      p_end_time:     endTime      || null,
+      p_radius:       radius,
+    })
+    if (error) throw error
+    return data || []
   },
 
   async getAll({ limit = 50, offset = 0 } = {}) {
-    const { rows } = await pool.query(
-      `SELECT s.*, u.name AS host_name, COALESCE(AVG(r.rating),0) AS avg_rating
-       FROM spots s JOIN users u ON u.id = s.host_id
-       LEFT JOIN bookings b ON b.spot_id = s.id
-       LEFT JOIN reviews r ON r.booking_id = b.id
-       GROUP BY s.id, u.name
-       ORDER BY s.created_at DESC LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    )
-    return rows
+    const { data, error } = await supabase
+      .from('v_spots')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+    if (error) throw error
+    return data || []
   },
 }
 

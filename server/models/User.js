@@ -1,72 +1,73 @@
-const pool = require('../config/db')
+const supabase = require('../config/supabase')
 
 const User = {
   async findById(id) {
-    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id])
-    return rows[0]
+    const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async findByEmail(email) {
-    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email])
-    return rows[0]
+    const { data, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async findByGoogleId(googleId) {
-    const { rows } = await pool.query('SELECT * FROM users WHERE google_id = $1', [googleId])
-    return rows[0]
+    const { data, error } = await supabase.from('users').select('*').eq('google_id', googleId).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async create({ name, email, passwordHash, phone, role, nid, license_plate, kyc_status }) {
-    const { rows } = await pool.query(
-      `INSERT INTO users (name, email, password_hash, phone, role, nid, license_plate, kyc_status, onboarded)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE) RETURNING *`,
-      [name, email, passwordHash, phone || null, role || 'driver', nid || null, license_plate || null, kyc_status || 'pending']
-    )
-    return rows[0]
+    const { data, error } = await supabase.from('users').insert({
+      name,
+      email,
+      password_hash: passwordHash,
+      phone: phone || null,
+      role: role || 'driver',
+      nid: nid || null,
+      license_plate: license_plate || null,
+      kyc_status: kyc_status || 'pending',
+      onboarded: true,
+    }).select().single()
+    if (error) throw error
+    return data
   },
 
   async update(id, fields) {
     const allowed = ['name', 'phone', 'bio', 'onboarded', 'avatar_url', 'vehicle_make', 'vehicle_model', 'vehicle_color', 'vehicle_size']
-    const sets = []
-    const vals = []
-    let i = 1
+    const updateObj = {}
     for (const [key, val] of Object.entries(fields)) {
-      if (allowed.includes(key)) {
-        sets.push(`${key} = $${i++}`)
-        vals.push(val)
-      }
+      if (allowed.includes(key)) updateObj[key] = val
     }
-    if (!sets.length) return null
-    vals.push(id)
-    const { rows } = await pool.query(
-      `UPDATE users SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`,
-      vals
-    )
-    return rows[0]
+    if (!Object.keys(updateObj).length) return null
+    const { data, error } = await supabase.from('users').update(updateObj).eq('id', id).select().single()
+    if (error) throw error
+    return data
   },
 
   async delete(id) {
-    await pool.query('DELETE FROM users WHERE id = $1', [id])
+    const { error } = await supabase.from('users').delete().eq('id', id)
+    if (error) throw error
   },
 
   async getAll({ role, search, limit = 50, offset = 0 } = {}) {
-    let q = 'SELECT id, name, email, phone, role, onboarded, created_at FROM users WHERE 1=1'
-    const vals = []
-    let i = 1
-    if (role) { q += ` AND role = $${i++}`; vals.push(role) }
-    if (search) { q += ` AND (name ILIKE $${i} OR email ILIKE $${i})`; vals.push(`%${search}%`); i++ }
-    q += ` ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`
-    vals.push(limit, offset)
-    const { rows } = await pool.query(q, vals)
-    return rows
+    let query = supabase
+      .from('users')
+      .select('id, name, email, phone, role, onboarded, created_at')
+    if (role) query = query.eq('role', role)
+    if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+    query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
   },
 
   async markOnboarded(id) {
-    const { rows } = await pool.query(
-      'UPDATE users SET onboarded = true WHERE id = $1 RETURNING *',
-      [id]
-    )
-    return rows[0]
+    const { data, error } = await supabase.from('users').update({ onboarded: true }).eq('id', id).select().single()
+    if (error) throw error
+    return data
   },
 }
 

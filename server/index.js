@@ -1,21 +1,21 @@
 require('dotenv').config()
-const express = require('express')
-const cors = require('cors')
-const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
+const express  = require('express')
+const cors     = require('cors')
+const bcrypt   = require('bcrypt')
+const jwt      = require('jsonwebtoken')
 const rateLimit = require('express-rate-limit')
 const passport = require('./config/passport')
-const multer = require('multer')
-const path = require('path')
-const fs = require('fs')
+const multer   = require('multer')
+const path     = require('path')
+const fs       = require('fs')
 
-const pool = require('./config/db')
-const User = require('./models/User')
-const Spot = require('./models/Spot')
-const Booking = require('./models/Booking')
-const Review = require('./models/Review')
+const supabase    = require('./config/supabase')
+const User        = require('./models/User')
+const Spot        = require('./models/Spot')
+const Booking     = require('./models/Booking')
+const Review      = require('./models/Review')
 const Transaction = require('./models/Transaction')
-const auth = require('./middleware/authMiddleware')
+const auth        = require('./middleware/authMiddleware')
 const requireRole = require('./middleware/roleMiddleware')
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
@@ -27,50 +27,17 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, req.uploadDir || 'uploads')),
-  filename: (req, file, cb) => {
+  filename:    (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase()
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`)
   },
 })
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits:     { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) =>
     file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Images only')),
 })
-
-// ── DB migrations for new columns ──────────────────────────────────────────
-;(async () => {
-  try {
-    await pool.query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-      ALTER TABLE spots ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT ARRAY[]::TEXT[];
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS nid VARCHAR(100);
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS license_plate VARCHAR(50);
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS kyc_status VARCHAR(20) NOT NULL DEFAULT 'pending';
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_make VARCHAR(80);
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_model VARCHAR(80);
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_color VARCHAR(50);
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS vehicle_size VARCHAR(20);
-      CREATE UNIQUE INDEX IF NOT EXISTS transactions_stripe_id_key ON transactions (stripe_id);
-      CREATE TABLE IF NOT EXISTS kyc_whitelist (
-        id           SERIAL PRIMARY KEY,
-        type         VARCHAR(20) NOT NULL CHECK (type IN ('nid','license_plate')),
-        value        VARCHAR(100) NOT NULL UNIQUE,
-        note         TEXT,
-        added_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-      ALTER TABLE kyc_whitelist ADD COLUMN IF NOT EXISTS nid_id INTEGER REFERENCES kyc_whitelist(id) ON DELETE SET NULL;
-    `)
-    // Extend booking status check constraint to include approved/rejected
-    await pool.query(`
-      ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
-      ALTER TABLE bookings ADD CONSTRAINT bookings_status_check
-        CHECK (status IN ('pending','approved','rejected','paid','active','completed','cancelled'));
-    `)
-  } catch (e) { /* columns may already exist */ }
-})()
 
 const app = express()
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
@@ -78,29 +45,32 @@ app.use(express.json())
 app.use(passport.initialize())
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { message: 'Too many attempts, try again in 15 minutes' } })
-const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: { message: 'Too many registrations from this IP' } })
+const authLimiter     = rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  message: { message: 'Too many attempts, try again in 15 minutes' } })
+const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10,  message: { message: 'Too many registrations from this IP' } })
 
 const sign = (user) =>
   jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' })
 
 // ── helpers ────────────────────────────────────────────────────────────────
 async function createNotification(userId, type, message, link = null) {
-  await pool.query(
-    'INSERT INTO notifications (user_id, type, message, link) VALUES ($1,$2,$3,$4)',
-    [userId, type, message, link]
-  )
+  await supabase.from('notifications').insert({ user_id: userId, type, message, link })
 }
 
 async function transitionBookings() {
-  await pool.query(`
-    UPDATE bookings SET status = 'active'
-    WHERE status = 'paid' AND start_time <= NOW() AND end_time > NOW();
-    UPDATE bookings SET status = 'completed'
-    WHERE status IN ('paid', 'active') AND end_time <= NOW();
-    UPDATE bookings SET status = 'cancelled'
-    WHERE status = 'approved' AND start_time < NOW();
-  `)
+  const now = new Date().toISOString()
+  await supabase.from('bookings')
+    .update({ status: 'active' })
+    .eq('status', 'paid')
+    .lte('start_time', now)
+    .gt('end_time', now)
+  await supabase.from('bookings')
+    .update({ status: 'completed' })
+    .in('status', ['paid', 'active'])
+    .lte('end_time', now)
+  await supabase.from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('status', 'approved')
+    .lt('start_time', now)
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -112,25 +82,28 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
     const { name, email, password, phone, role, nid, license_plate } = req.body
     if (!name || !email || !password) return res.status(400).json({ message: 'name, email, password required' })
 
-    // Public registration is limited to driver/host — never admin
     const safeRole = role === 'host' ? 'host' : 'driver'
 
     if (!nid) return res.status(400).json({ message: 'NID number is required' })
-    const nidRow = await pool.query(
-      `SELECT id FROM kyc_whitelist WHERE type = 'nid' AND LOWER(value) = LOWER($1)`, [nid]
-    )
-    if (!nidRow.rows.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
-    const nidEntryId = nidRow.rows[0].id
+    const { data: nidRows } = await supabase
+      .from('kyc_whitelist')
+      .select('id')
+      .eq('type', 'nid')
+      .ilike('value', nid)
+      .limit(1)
+    if (!nidRows?.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
+    const nidEntryId = nidRows[0].id
 
     if (safeRole === 'driver') {
       if (!license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
-      const plateRow = await pool.query(
-        `SELECT id FROM kyc_whitelist
-         WHERE type = 'license_plate' AND LOWER(value) = LOWER($1)
-           AND (nid_id = $2 OR nid_id IS NULL)`,
-        [license_plate, nidEntryId]
-      )
-      if (!plateRow.rows.length) return res.status(403).json({ message: 'License plate is not registered under this NID. Contact support.' })
+      const { data: plateRows } = await supabase
+        .from('kyc_whitelist')
+        .select('id')
+        .eq('type', 'license_plate')
+        .ilike('value', license_plate)
+        .or(`nid_id.eq.${nidEntryId},nid_id.is.null`)
+        .limit(1)
+      if (!plateRows?.length) return res.status(403).json({ message: 'License plate is not registered under this NID. Contact support.' })
     }
 
     const existing = await User.findByEmail(email)
@@ -214,7 +187,6 @@ app.get('/api/users/:id', auth, async (req, res) => {
     const user = await User.findById(req.params.id)
     if (!user) return res.status(404).json({ message: 'User not found' })
     const { password_hash, ...safe } = user
-    // Non-owners/non-admins only get public fields
     if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
       const { id, name, avatar_url, bio, role, avg_rating, created_at } = safe
       return res.json({ id, name, avatar_url, bio, role, avg_rating, created_at })
@@ -233,7 +205,6 @@ app.put('/api/users/:id', auth, async (req, res) => {
 
     const { currentPassword, password, ...profileFields } = req.body
 
-    // Handle password change
     if (password) {
       if (password.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' })
       const existing = await User.findById(req.params.id)
@@ -244,10 +215,9 @@ app.put('/api/users/:id', auth, async (req, res) => {
         if (!valid) return res.status(401).json({ message: 'Current password is incorrect' })
       }
       const newHash = await bcrypt.hash(password, 10)
-      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.params.id])
+      await supabase.from('users').update({ password_hash: newHash }).eq('id', req.params.id)
     }
 
-    // Handle profile field updates
     let updated = await User.findById(req.params.id)
     if (Object.keys(profileFields).length > 0) {
       updated = await User.update(req.params.id, profileFields) || updated
@@ -280,13 +250,13 @@ app.get('/api/spots', async (req, res) => {
   try {
     const { lat, lng, maxPrice, minRating, vehicleSize, startTime, endTime } = req.query
     const spots = await Spot.search({
-      lat: lat ? parseFloat(lat) : null,
-      lng: lng ? parseFloat(lng) : null,
-      maxPrice: maxPrice ? parseFloat(maxPrice) : null,
-      minRating: minRating ? parseFloat(minRating) : null,
+      lat:         lat         ? parseFloat(lat)         : null,
+      lng:         lng         ? parseFloat(lng)         : null,
+      maxPrice:    maxPrice    ? parseFloat(maxPrice)    : null,
+      minRating:   minRating   ? parseFloat(minRating)   : null,
       vehicleSize: vehicleSize || null,
-      startTime: startTime || null,
-      endTime: endTime || null,
+      startTime:   startTime   || null,
+      endTime:     endTime     || null,
     })
     res.json(spots)
   } catch (err) {
@@ -393,15 +363,14 @@ app.get('/api/spots/:id/booked-slots', async (req, res) => {
     }
     const dayStart = new Date(date + 'T00:00:00+06:00')
     const dayEnd   = new Date(date + 'T23:59:59+06:00')
-    const { rows } = await pool.query(
-      `SELECT start_time, end_time FROM bookings
-       WHERE spot_id = $1
-         AND status IN ('approved','paid','active')
-         AND start_time < $3
-         AND end_time   > $2`,
-      [req.params.id, dayStart.toISOString(), dayEnd.toISOString()]
-    )
-    res.json(rows.map(r => ({ start: r.start_time, end: r.end_time })))
+    const { data } = await supabase
+      .from('bookings')
+      .select('start_time, end_time')
+      .eq('spot_id', req.params.id)
+      .in('status', ['approved', 'paid', 'active'])
+      .lt('start_time', dayEnd.toISOString())
+      .gt('end_time', dayStart.toISOString())
+    res.json((data || []).map(r => ({ start: r.start_time, end: r.end_time })))
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
@@ -420,7 +389,6 @@ app.post('/api/bookings', auth, requireRole('driver'), async (req, res) => {
     if (hours < 1) return res.status(400).json({ message: 'Minimum booking is 1 hour' })
     if (hours > 720) return res.status(400).json({ message: 'Booking cannot exceed 30 days' })
 
-    // Validate 15-minute alignment (BDT)
     const startMinBDT = (start.getUTCHours() * 60 + start.getUTCMinutes() + 6 * 60) % (24 * 60)
     const endMinBDT   = (end.getUTCHours()   * 60 + end.getUTCMinutes()   + 6 * 60) % (24 * 60)
     if (startMinBDT % 15 !== 0 || endMinBDT % 15 !== 0) {
@@ -430,7 +398,6 @@ app.post('/api/bookings', auth, requireRole('driver'), async (req, res) => {
     const spot = await Spot.findById(spotId)
     if (!spot) return res.status(404).json({ message: 'Spot not found' })
 
-    // Validate against spot's available window
     if (spot.available_from && spot.available_to) {
       const [fh, fm] = spot.available_from.split(':').map(Number)
       const [th, tm] = spot.available_to.split(':').map(Number)
@@ -546,7 +513,6 @@ app.patch('/api/bookings/:id/cancel', auth, async (req, res) => {
     if (booking.driver_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' })
     if (!['pending', 'approved', 'paid'].includes(booking.status)) return res.status(400).json({ message: 'Cannot cancel' })
     const updated = await Booking.updateStatus(req.params.id, 'cancelled')
-    // Issue Stripe refund if the booking was already paid
     if (booking.stripe_payment_id) {
       try {
         await stripe.refunds.create({ payment_intent: booking.stripe_payment_id })
@@ -656,12 +622,12 @@ app.get('/api/transactions/:id', auth, async (req, res) => {
     const txn = await Transaction.findById(req.params.id)
     if (!txn) return res.status(404).json({ message: 'Not found' })
     if (req.user.role !== 'admin') {
-      const { rows } = await pool.query(
-        `SELECT b.driver_id, s.host_id FROM bookings b
-         JOIN spots s ON s.id = b.spot_id WHERE b.id = $1`,
-        [txn.booking_id]
-      )
-      if (!rows.length || (req.user.id !== rows[0].host_id && req.user.id !== rows[0].driver_id)) {
+      const { data: bk } = await supabase
+        .from('bookings')
+        .select('driver_id, spots(host_id)')
+        .eq('id', txn.booking_id)
+        .single()
+      if (!bk || (req.user.id !== bk.spots?.host_id && req.user.id !== bk.driver_id)) {
         return res.status(403).json({ message: 'Forbidden' })
       }
     }
@@ -679,7 +645,6 @@ const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000'
 app.post('/api/upload/avatar', auth, (req, res, next) => { req.uploadDir = 'uploads/avatars'; next() },
   upload.single('avatar'), async (req, res) => {
     try {
-      // Delete old avatar file if it was uploaded to this server
       const existing = await User.findById(req.user.id)
       if (existing?.avatar_url?.startsWith(SERVER_URL)) {
         const oldFile = path.join(__dirname, existing.avatar_url.replace(SERVER_URL, ''))
@@ -696,11 +661,10 @@ app.post('/api/spots/:id/images', auth, (req, res, next) => { req.uploadDir = 'u
   upload.array('images', 5), async (req, res) => {
     try {
       const urls = req.files.map(f => `${SERVER_URL}/uploads/spots/${f.filename}`)
-      const { rows } = await pool.query(
-        'UPDATE spots SET images = images || $1 WHERE id = $2 RETURNING images',
-        [urls, req.params.id]
-      )
-      res.json({ images: rows[0].images })
+      const { data: spot } = await supabase.from('spots').select('images').eq('id', req.params.id).single()
+      const merged = [...(spot?.images || []), ...urls]
+      const { data } = await supabase.from('spots').update({ images: merged }).eq('id', req.params.id).select('images').single()
+      res.json({ images: data.images })
     } catch (err) { res.status(500).json({ message: 'Upload failed' }) }
   }
 )
@@ -710,11 +674,13 @@ app.post('/api/spots/:id/images', auth, (req, res, next) => { req.uploadDir = 'u
 // ══════════════════════════════════════════════════════════════════════════
 app.get('/api/notifications', auth, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
-      [req.user.id]
-    )
-    res.json(rows)
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    res.json(data || [])
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }
@@ -722,7 +688,7 @@ app.get('/api/notifications', auth, async (req, res) => {
 
 app.patch('/api/notifications/:id/read', auth, async (req, res) => {
   try {
-    await pool.query('UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])
+    await supabase.from('notifications').update({ is_read: true }).eq('id', req.params.id).eq('user_id', req.user.id)
     res.json({ message: 'Marked read' })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -731,7 +697,7 @@ app.patch('/api/notifications/:id/read', auth, async (req, res) => {
 
 app.patch('/api/notifications/read-all', auth, async (req, res) => {
   try {
-    await pool.query('UPDATE notifications SET is_read = true WHERE user_id = $1', [req.user.id])
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', req.user.id)
     res.json({ message: 'All marked read' })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -740,7 +706,7 @@ app.patch('/api/notifications/read-all', auth, async (req, res) => {
 
 app.delete('/api/notifications/:id', auth, async (req, res) => {
   try {
-    await pool.query('DELETE FROM notifications WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id])
+    await supabase.from('notifications').delete().eq('id', req.params.id).eq('user_id', req.user.id)
     res.json({ message: 'Deleted' })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -758,10 +724,10 @@ app.post('/api/payments/create-intent', auth, async (req, res) => {
     if (booking.driver_id !== req.user.id) return res.status(403).json({ message: 'Forbidden' })
 
     const intent = await stripe.paymentIntents.create({
-      amount: Math.round(booking.total_price * 100),
-      currency: 'usd',
+      amount:               Math.round(booking.total_price * 100),
+      currency:             'usd',
       payment_method_types: ['card'],
-      metadata: { bookingId: String(bookingId) },
+      metadata:             { bookingId: String(bookingId) },
     })
     res.json({ clientSecret: intent.client_secret })
   } catch (err) {
@@ -782,7 +748,6 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
       return res.status(400).json({ message: 'Payment not completed' })
     }
 
-    // Idempotency guard — if this Stripe payment was already processed, return success without duplicating
     const existingTxn = await Transaction.getByStripeId(stripePaymentId)
     if (existingTxn) return res.json({ message: 'Payment already confirmed' })
 
@@ -803,23 +768,31 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 app.get('/api/admin/stats', auth, requireRole('admin'), async (req, res) => {
   try {
-    const [users, allSpots, activeSpots, allBookings, pendingBookings, completedBookings, revenue] = await Promise.all([
-      pool.query('SELECT COUNT(*) FROM users'),
-      pool.query('SELECT COUNT(*) FROM spots'),
-      pool.query('SELECT COUNT(*) FROM spots WHERE is_active = true'),
-      pool.query('SELECT COUNT(*) FROM bookings'),
-      pool.query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'"),
-      pool.query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'"),
-      pool.query("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE status = 'paid'"),
+    const [
+      { count: totalUsers },
+      { count: totalSpots },
+      { count: activeSpots },
+      { count: totalBookings },
+      { count: pendingBookings },
+      { count: completedBookings },
+      { data: revenueData },
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('spots').select('*', { count: 'exact', head: true }),
+      supabase.from('spots').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+      supabase.rpc('get_total_revenue'),
     ])
     res.json({
-      total_users: parseInt(users.rows[0].count),
-      total_spots: parseInt(allSpots.rows[0].count),
-      active_spots: parseInt(activeSpots.rows[0].count),
-      total_bookings: parseInt(allBookings.rows[0].count),
-      pending_bookings: parseInt(pendingBookings.rows[0].count),
-      completed_bookings: parseInt(completedBookings.rows[0].count),
-      total_revenue: parseFloat(revenue.rows[0].total),
+      total_users:        totalUsers        || 0,
+      total_spots:        totalSpots        || 0,
+      active_spots:       activeSpots       || 0,
+      total_bookings:     totalBookings     || 0,
+      pending_bookings:   pendingBookings   || 0,
+      completed_bookings: completedBookings || 0,
+      total_revenue:      parseFloat(revenueData) || 0,
     })
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
@@ -830,17 +803,14 @@ app.get('/api/admin/bookings', auth, requireRole('admin'), async (req, res) => {
   try {
     await transitionBookings()
     const { status, limit = 100, offset = 0 } = req.query
-    let q = `SELECT b.*, s.title AS spot_title, d.name AS driver_name, h.name AS host_name
-             FROM bookings b
-             JOIN spots s ON s.id = b.spot_id
-             JOIN users d ON d.id = b.driver_id
-             JOIN users h ON h.id = s.host_id`
-    const vals = []
-    if (status) { q += ` WHERE b.status = $1`; vals.push(status) }
-    q += ` ORDER BY b.created_at DESC LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`
-    vals.push(parseInt(limit), parseInt(offset))
-    const { rows } = await pool.query(q, vals)
-    res.json(rows)
+    let query = supabase
+      .from('v_bookings')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1)
+    if (status) query = query.eq('status', status)
+    const { data } = await query
+    res.json(data || [])
   } catch (err) {
     res.status(500).json({ message: 'Server error' })
   }
@@ -851,14 +821,11 @@ app.get('/api/admin/bookings', auth, requireRole('admin'), async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 app.get('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT k.*, u.name AS added_by_name, n.value AS linked_nid
-       FROM kyc_whitelist k
-       LEFT JOIN users u ON u.id = k.added_by
-       LEFT JOIN kyc_whitelist n ON n.id = k.nid_id
-       ORDER BY k.created_at DESC`
-    )
-    res.json(rows)
+    const { data } = await supabase
+      .from('v_kyc_whitelist')
+      .select('*')
+      .order('created_at', { ascending: false })
+    res.json(data || [])
   } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
 
@@ -870,27 +837,30 @@ app.post('/api/admin/kyc', auth, requireRole('admin'), async (req, res) => {
 
     let nidId = null
     if (type === 'license_plate' && linkedNid) {
-      const nidRow = await pool.query(
-        `SELECT id FROM kyc_whitelist WHERE type = 'nid' AND LOWER(value) = LOWER($1)`,
-        [linkedNid.trim()]
-      )
-      if (!nidRow.rows.length) return res.status(400).json({ message: `NID "${linkedNid}" not found in whitelist` })
-      nidId = nidRow.rows[0].id
+      const { data: nidRow } = await supabase
+        .from('kyc_whitelist')
+        .select('id')
+        .eq('type', 'nid')
+        .ilike('value', linkedNid.trim())
+        .maybeSingle()
+      if (!nidRow) return res.status(400).json({ message: `NID "${linkedNid}" not found in whitelist` })
+      nidId = nidRow.id
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO kyc_whitelist (type, value, note, added_by, nid_id) VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (value) DO NOTHING RETURNING *`,
-      [type, value.trim().toUpperCase(), note || null, req.user.id, nidId]
-    )
-    if (!rows.length) return res.status(409).json({ message: 'This value already exists in the whitelist' })
-    res.status(201).json(rows[0])
+    const { data, error } = await supabase
+      .from('kyc_whitelist')
+      .insert({ type, value: value.trim().toUpperCase(), note: note || null, added_by: req.user.id, nid_id: nidId })
+      .select()
+      .single()
+    if (error?.code === '23505') return res.status(409).json({ message: 'This value already exists in the whitelist' })
+    if (error) throw error
+    res.status(201).json(data)
   } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
 
 app.delete('/api/admin/kyc/:id', auth, requireRole('admin'), async (req, res) => {
   try {
-    await pool.query('DELETE FROM kyc_whitelist WHERE id = $1', [req.params.id])
+    await supabase.from('kyc_whitelist').delete().eq('id', req.params.id)
     res.json({ message: 'Deleted' })
   } catch (err) { res.status(500).json({ message: 'Server error' }) }
 })
