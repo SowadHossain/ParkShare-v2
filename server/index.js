@@ -100,31 +100,12 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
     const safeRole = role === 'host' ? 'host' : 'driver'
 
     if (!nid) return res.status(400).json({ message: 'NID number is required' })
-    const { data: nidRows } = await supabase
-      .from('kyc_whitelist')
-      .select('id')
-      .eq('type', 'nid')
-      .ilike('value', nid)
-      .limit(1)
-    if (!nidRows?.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
-    const nidEntryId = nidRows[0].id
-
-    if (safeRole === 'driver') {
-      if (!license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
-      const { data: plateRows } = await supabase
-        .from('kyc_whitelist')
-        .select('id')
-        .eq('type', 'license_plate')
-        .ilike('value', license_plate)
-        .or(`nid_id.eq.${nidEntryId},nid_id.is.null`)
-        .limit(1)
-      if (!plateRows?.length) return res.status(403).json({ message: 'License plate is not registered under this NID. Contact support.' })
-    }
+    if (safeRole === 'driver' && !license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
 
     const existing = await User.findByEmail(email)
     if (existing) return res.status(409).json({ message: 'Email already in use' })
     const passwordHash = await bcrypt.hash(password, 10)
-    const user = await User.create({ name, email, passwordHash, phone, role: safeRole, nid, license_plate: safeRole === 'driver' ? license_plate : null, kyc_status: 'approved' })
+    const user = await User.create({ name, email, passwordHash, phone, role: safeRole, nid: nid.trim(), license_plate: safeRole === 'driver' ? license_plate.trim().toUpperCase() : null, kyc_status: 'pending' })
     const token = sign(user)
     const { password_hash: _ph, ...safeUser } = user
     res.status(201).json({ token, user: safeUser })
@@ -173,50 +154,32 @@ app.post('/api/auth/onboarded', auth, async (req, res) => {
   }
 })
 
-// POST /api/auth/complete-kyc — for Google OAuth users who skipped KYC
+// POST /api/auth/complete-kyc — for Google OAuth users submitting KYC details
 app.post('/api/auth/complete-kyc', auth, async (req, res) => {
   try {
-    const { nid, license_plate, role } = req.body
+    const { role } = req.body
+    const nid = (req.body.nid || '').trim()
+    const license_plate = (req.body.license_plate || '').trim().toUpperCase()
     const safeRole = role === 'host' ? 'host' : 'driver'
 
     if (!nid) return res.status(400).json({ message: 'NID number is required' })
+    if (safeRole === 'driver' && !license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
 
-    const { data: nidRows } = await supabase
-      .from('kyc_whitelist')
-      .select('id')
-      .eq('type', 'nid')
-      .ilike('value', nid)
-      .limit(1)
-    if (!nidRows?.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
-    const nidEntryId = nidRows[0].id
+    const updateData = { nid, kyc_status: 'pending', role: safeRole }
+    if (safeRole === 'driver') updateData.license_plate = license_plate
 
-    if (safeRole === 'driver') {
-      if (!license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
-      const { data: plateRows } = await supabase
-        .from('kyc_whitelist')
-        .select('id')
-        .eq('type', 'license_plate')
-        .ilike('value', license_plate)
-        .or(`nid_id.eq.${nidEntryId},nid_id.is.null`)
-        .limit(1)
-      if (!plateRows?.length) return res.status(403).json({ message: 'License plate is not registered under this NID. Contact support.' })
+    const { data: updated, error: updateErr } = await supabase
+      .from('users').update(updateData).eq('id', req.user.id).select().single()
+    if (updateErr) {
+      console.error('KYC update error:', updateErr)
+      return res.status(500).json({ message: 'Server error' })
     }
 
-    const updateData = { nid, kyc_status: 'approved', role: safeRole }
-    if (safeRole === 'driver') updateData.license_plate = license_plate.toUpperCase()
-
-    const { data: updated, error } = await supabase
-      .from('users')
-      .update(updateData)
-      .eq('id', req.user.id)
-      .select()
-      .single()
-    if (error) throw error
-
     const { password_hash, ...safeUser } = updated
-    res.json({ user: safeUser })
+    const newToken = sign(updated)
+    res.json({ token: newToken, user: safeUser })
   } catch (err) {
-    console.error(err)
+    console.error('complete-kyc error:', err)
     res.status(500).json({ message: 'Server error' })
   }
 })
@@ -820,6 +783,85 @@ app.post('/api/payments/confirm', auth, async (req, res) => {
     await createNotification(booking.driver_id, 'payment_confirmed', `Payment confirmed for ${booking.spot_title}`, `/driver/bookings/${bookingId}`)
 
     res.json({ message: 'Payment confirmed' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════
+// KYC REQUESTS (admin)
+// ══════════════════════════════════════════════════════════════════════════
+app.get('/api/admin/kyc-requests', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { data: pending } = await supabase
+      .from('users')
+      .select('id, name, email, role, nid, license_plate, created_at')
+      .eq('kyc_status', 'pending')
+      .order('created_at', { ascending: true })
+
+    if (!pending?.length) return res.json([])
+
+    const enriched = await Promise.all(pending.map(async (u) => {
+      let nid_conflict = null, plate_conflict = null
+
+      if (u.nid) {
+        const { data } = await supabase.from('users').select('id, name')
+          .eq('nid', u.nid).eq('kyc_status', 'approved').neq('id', u.id).limit(1)
+        if (data?.length) nid_conflict = data[0].name
+      }
+      if (u.license_plate) {
+        const { data } = await supabase.from('users').select('id, name')
+          .eq('license_plate', u.license_plate).eq('kyc_status', 'approved').neq('id', u.id).limit(1)
+        if (data?.length) plate_conflict = data[0].name
+      }
+
+      return { ...u, nid_conflict, plate_conflict }
+    }))
+
+    res.json(enriched)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+app.post('/api/admin/kyc-requests/:id/approve', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (user.kyc_status !== 'pending') return res.status(400).json({ message: 'No pending KYC for this user' })
+
+    if (user.nid) {
+      const { data: conflict } = await supabase.from('users').select('name')
+        .eq('nid', user.nid).eq('kyc_status', 'approved').neq('id', user.id).limit(1)
+      if (conflict?.length) {
+        return res.status(409).json({ message: `NID already approved under "${conflict[0].name}". Reject this request first.` })
+      }
+    }
+
+    await supabase.from('users').update({ kyc_status: 'approved' }).eq('id', user.id)
+    await createNotification(user.id, 'kyc_approved',
+      'Your KYC has been approved. Welcome to ParkShare!',
+      `/${user.role}/dashboard`)
+    res.json({ message: 'KYC approved' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+app.post('/api/admin/kyc-requests/:id/reject', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body
+    const user = await User.findById(req.params.id)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    await supabase.from('users').update({ kyc_status: 'rejected' }).eq('id', user.id)
+    await createNotification(user.id, 'kyc_rejected',
+      reason ? `Your KYC was rejected: ${reason}` : 'Your KYC was rejected. Please resubmit with correct details.',
+      '/kyc-complete')
+    res.json({ message: 'KYC rejected' })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })

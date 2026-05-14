@@ -11,6 +11,8 @@ import ForgotPassword from './portals/Public/pages/ForgotPassword.jsx'
 import AuthCallback from './portals/Public/pages/AuthCallback.jsx'
 import NotFound from './portals/Public/pages/NotFound.jsx'
 import KycComplete from './portals/Public/pages/KycComplete.jsx'
+import KycPending from './portals/Public/pages/KycPending.jsx'
+import KycRejected from './portals/Public/pages/KycRejected.jsx'
 
 // Driver
 import DriverLayout from './portals/Driver/DriverLayout.jsx'
@@ -66,6 +68,7 @@ import ModerationReviews from './portals/Admin/pages/ModerationReviews.jsx'
 import AdminUserDetails from './portals/Admin/pages/UserDetails.jsx'
 import AdminSpotDetails from './portals/Admin/pages/SpotDetails.jsx'
 import KycWhitelist from './portals/Admin/pages/KycWhitelist.jsx'
+import KycRequests from './portals/Admin/pages/KycRequests.jsx'
 
 const router = createBrowserRouter([
   // ── Public ────────────────────────────────────────────────────────────
@@ -80,6 +83,8 @@ const router = createBrowserRouter([
       { path: '/forgot-password', element: <ForgotPassword /> },
       { path: '/auth/callback', element: <AuthCallback /> },
       { path: '/kyc-complete', element: <KycComplete /> },
+      { path: '/kyc-pending',  element: <KycPending /> },
+      { path: '/kyc-rejected', element: <KycRejected /> },
     ],
   },
 
@@ -151,6 +156,7 @@ const router = createBrowserRouter([
       { path: 'spots/:id', element: <AdminSpotDetails /> },
       { path: 'reviews', element: <ModerationReviews /> },
       { path: 'kyc', element: <KycWhitelist /> },
+      { path: 'kyc-requests', element: <KycRequests /> },
     ],
   },
 

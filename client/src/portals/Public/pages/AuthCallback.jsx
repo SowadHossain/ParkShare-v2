@@ -18,12 +18,15 @@ export default function AuthCallback() {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     axios.get(`${API}/auth/me`).then(res => {
       login(token, res.data)
-      if (res.data.kyc_status !== 'approved') {
-        navigate('/kyc-complete')
-      } else if (!res.data.onboarded) {
-        navigate(`/${role || res.data.role}/welcome`)
+      const { role: userRole, kyc_status, onboarded } = res.data
+      if (kyc_status === 'rejected') {
+        navigate('/kyc-rejected')
+      } else if (kyc_status !== 'approved') {
+        navigate(kyc_status === undefined || !res.data.nid ? '/kyc-complete' : '/kyc-pending')
+      } else if (!onboarded) {
+        navigate(`/${userRole}/welcome`)
       } else {
-        navigate(`/${role || res.data.role}/dashboard`)
+        navigate(`/${userRole}/dashboard`)
       }
     }).catch(() => navigate('/login?error=oauth'))
   }, [])

@@ -3,19 +3,19 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useEffect, useState } from 'react'
 
 const NAV = [
-  { to: '/admin',         label: 'Dashboard', icon: '◈', end: true },
-  { to: '/admin/users',   label: 'Users',     icon: '◉'            },
-  { to: '/admin/spots',   label: 'Spots',     icon: '▤'            },
-  { to: '/admin/reviews', label: 'Reviews',   icon: '★'            },
-  { to: '/admin/kyc',     label: 'KYC',       icon: '⊛'            },
+  { to: '/admin',              label: 'Dashboard',   icon: '◈', end: true },
+  { to: '/admin/users',        label: 'Users',       icon: '◉'            },
+  { to: '/admin/spots',        label: 'Spots',       icon: '▤'            },
+  { to: '/admin/reviews',      label: 'Reviews',     icon: '★'            },
+  { to: '/admin/kyc-requests', label: 'KYC Requests',icon: '⊛'            },
 ]
 
 const MOBILE_NAV = [
-  { to: '/admin',         label: 'Home',    icon: '◈', end: true },
-  { to: '/admin/users',   label: 'Users',   icon: '◉'            },
-  { to: '/admin/spots',   label: 'Spots',   icon: '▤'            },
-  { to: '/admin/reviews', label: 'Reviews', icon: '★'            },
-  { to: '/admin/kyc',     label: 'KYC',     icon: '⊛'            },
+  { to: '/admin',              label: 'Home',    icon: '◈', end: true },
+  { to: '/admin/users',        label: 'Users',   icon: '◉'            },
+  { to: '/admin/spots',        label: 'Spots',   icon: '▤'            },
+  { to: '/admin/reviews',      label: 'Reviews', icon: '★'            },
+  { to: '/admin/kyc-requests', label: 'KYC',     icon: '⊛'            },
 ]
 
 function AdminMobileDrawer({ user, onClose }) {

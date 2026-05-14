@@ -4,7 +4,7 @@ import axios from 'axios'
 import { useAuth, API } from '../../../context/AuthContext.jsx'
 
 export default function KycComplete() {
-  const { user, setUser } = useAuth()
+  const { user, login } = useAuth()
   const navigate = useNavigate()
 
   const [form, setForm] = useState({ role: 'driver', nid: '', license_plate: '' })
@@ -23,8 +23,8 @@ export default function KycComplete() {
         license_plate: form.role === 'driver' ? form.license_plate : undefined,
         role: form.role,
       })
-      setUser(data.user)
-      navigate(`/${data.user.role}/welcome`)
+      login(data.token, data.user)
+      navigate('/kyc-pending')
     } catch (err) {
       setError(err.response?.data?.message || 'Verification failed')
     } finally {
@@ -71,7 +71,7 @@ export default function KycComplete() {
           )}
 
           <p className="text-[11px] text-muted leading-relaxed">
-            Your NID and license plate are verified against our approved database. Contact support if you have issues.
+            Your details will be reviewed by our team. You'll be notified once your KYC is approved.
           </p>
 
           <button type="submit" disabled={loading}

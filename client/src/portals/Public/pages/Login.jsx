@@ -21,8 +21,14 @@ export default function Login() {
     try {
       const res = await axios.post(`${API}/auth/login`, form)
       login(res.data.token, res.data.user)
-      const role = res.data.user.role
-      if (!res.data.user.onboarded) {
+      const { role, kyc_status, onboarded } = res.data.user
+      if (role === 'admin') {
+        navigate('/admin/dashboard')
+      } else if (kyc_status === 'rejected') {
+        navigate('/kyc-rejected')
+      } else if (kyc_status !== 'approved') {
+        navigate('/kyc-pending')
+      } else if (!onboarded) {
         navigate(`/${role}/welcome`)
       } else {
         navigate(`/${role}/dashboard`)

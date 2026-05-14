@@ -25,7 +25,7 @@ export default function Register() {
     try {
       const res = await axios.post(`${API}/auth/register`, form)
       login(res.data.token, res.data.user)
-      navigate(`/${res.data.user.role}/welcome`)
+      navigate('/kyc-pending')
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed')
     } finally {
@@ -101,7 +101,7 @@ export default function Register() {
               )}
             </div>
             <p className="text-[11px] text-muted mt-3 leading-relaxed">
-              Your NID and license plate are verified against our approved database. Contact support if you have issues.
+              Your details will be reviewed by our team. You'll be notified once your KYC is approved.
             </p>
           </div>
 
