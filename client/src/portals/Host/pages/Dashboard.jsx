@@ -50,7 +50,7 @@ export default function HostDashboard() {
             <div className="font-mono text-[11px] text-muted tracking-wider">HOST DASHBOARD</div>
             <h1 className="text-[26px] font-bold tracking-tight mt-1">Hi {firstName}</h1>
           </div>
-          <div className="w-10 h-10 rounded-full bg-paper2 flex items-center justify-center text-sm font-bold border border-black/10">
+          <div className="hidden md:flex w-10 h-10 rounded-full bg-paper2 items-center justify-center text-sm font-bold border border-black/10">
             {user?.name?.charAt(0)}
           </div>
         </div>
@@ -63,7 +63,7 @@ export default function HostDashboard() {
             style={{ background: 'rgba(200,255,61,0.18)' }} />
           <div className="font-mono text-[11px] tracking-wider" style={{ color: '#C8FF3D' }}>EARNINGS · THIS MONTH</div>
           <div className="font-mono text-[42px] font-bold mt-2 tracking-tight" style={{ color: '#F6F4EE' }}>
-            ${totalEarnings.toFixed(2)}
+            ৳{totalEarnings.toFixed(2)}
           </div>
           <div className="text-[13px] mt-1" style={{ color: 'rgba(246,244,238,0.5)' }}>
             {bookings.filter(b => b.status === 'paid' || b.status === 'completed').length} paid bookings

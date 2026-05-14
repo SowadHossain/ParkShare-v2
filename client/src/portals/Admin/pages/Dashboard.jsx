@@ -38,7 +38,7 @@ export default function AdminDashboard() {
         <StatCard label="TOTAL USERS" value={stats?.total_users ?? 0} sub="all roles" tone="dark" />
         <StatCard label="TOTAL SPOTS" value={stats?.total_spots ?? 0} sub="listed" />
         <StatCard label="TOTAL BOOKINGS" value={stats?.total_bookings ?? 0} sub="all time" />
-        <StatCard label="REVENUE" value={`$${parseFloat(stats?.total_revenue ?? 0).toFixed(2)}`} sub="gross" tone="lime" />
+        <StatCard label="REVENUE" value={`৳${parseFloat(stats?.total_revenue ?? 0).toFixed(2)}`} sub="gross" tone="lime" />
       </div>
 
       <div className="grid md:grid-cols-3 gap-3 mb-10">

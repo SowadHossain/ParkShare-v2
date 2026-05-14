@@ -4,6 +4,8 @@ import axios from 'axios'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { API } from '../../../context/AuthContext.jsx'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
 export default function Register() {
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -34,17 +36,8 @@ export default function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper px-4 py-12">
       <div className="w-full max-w-md">
-        <Link to="/" className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 bg-lime rounded-[10px] flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M4 14V4h5.5a3 3 0 010 6H7" stroke="#0E0E0C" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold">ParkShare</span>
-        </Link>
-
         <div className="font-mono text-xs text-muted tracking-widest mb-3">CREATE ACCOUNT</div>
-        <h1 className="text-4xl font-bold tracking-tight mb-8">Join ParkShare.</h1>
+        <h1 className="text-4xl font-bold tracking-tight mb-8">Create an account.</h1>
 
         {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-xl text-sm">{error}</div>}
 
@@ -118,7 +111,24 @@ export default function Register() {
           </button>
         </form>
 
-        <p className="text-center mt-6 text-sm text-muted">
+        <div className="flex items-center gap-3 mt-5">
+          <div className="flex-1 h-px bg-black/10" />
+          <span className="font-mono text-[11px] text-muted">OR</span>
+          <div className="flex-1 h-px bg-black/10" />
+        </div>
+
+        <a href={`${API_URL.replace('/api', '')}/api/auth/google`}
+          className="mt-4 w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-black/10 rounded-full text-sm font-semibold hover:bg-paper2 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 18 18">
+            <path d="M17.6 9.2c0-.7-.06-1.4-.18-2H9v3.8h4.84a4.14 4.14 0 01-1.8 2.7v2.25h2.92c1.7-1.57 2.7-3.9 2.7-6.75z" fill="#4285F4" />
+            <path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.55-1.84.87-3.04.87-2.34 0-4.32-1.58-5.02-3.7H.95v2.32A9 9 0 009 18z" fill="#34A853" />
+            <path d="M3.98 10.73a5.41 5.41 0 010-3.46V4.96H.95a9 9 0 000 8.08l3.03-2.31z" fill="#FBBC05" />
+            <path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 00.95 4.96l3.03 2.3C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335" />
+          </svg>
+          Continue with Google
+        </a>
+
+        <p className="text-center mt-5 text-sm text-muted">
           Already have an account?{' '}
           <Link to="/login" className="font-semibold text-ink hover:underline">Sign in →</Link>
         </p>

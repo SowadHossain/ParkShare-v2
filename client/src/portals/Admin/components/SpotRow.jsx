@@ -9,7 +9,7 @@ export default function SpotRow({ spot, onDelete }) {
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm truncate">{spot.title}</div>
         <div className="text-xs text-muted truncate">{spot.address}</div>
-        <div className="text-xs text-muted mt-0.5">Host: {spot.host_name} · ৳{parseFloat(spot.price_per_hour).toFixed(0)}/hr</div>
+        <div className="text-xs text-muted mt-0.5">Host: {spot.host_name} · ৳{parseFloat(spot.hourly_price).toFixed(0)}/hr</div>
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
         <span className={`font-mono text-[11px] px-2 py-0.5 rounded-full ${

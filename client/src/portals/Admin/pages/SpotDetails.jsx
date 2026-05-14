@@ -39,7 +39,7 @@ export default function AdminSpotDetails() {
 
   const fields = [
     ['Address', spot.address],
-    ['Price', `৳${parseFloat(spot.price_per_hour).toFixed(0)}/hr`],
+    ['Price', `৳${parseFloat(spot.hourly_price).toFixed(0)}/hr`],
     ['Vehicle size', spot.vehicle_size],
     ['Status', spot.is_active ? 'Active' : 'Paused'],
     ['Host', spot.host_name],

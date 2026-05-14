@@ -48,18 +48,9 @@ export default function Login() {
     <div className="min-h-screen flex bg-paper">
       {/* Left: form */}
       <div className="flex-1 flex flex-col p-10 md:p-14">
-        <Link to="/" className="flex items-center gap-2 w-fit">
-          <div className="w-8 h-8 bg-lime rounded-[10px] flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M4 14V4h5.5a3 3 0 010 6H7" stroke="#0E0E0C" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold">ParkShare</span>
-        </Link>
-
         <div className="my-auto max-w-sm w-full">
           <div className="font-mono text-xs text-muted tracking-widest mb-3">WELCOME BACK</div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-none mb-8">Sign in to<br />ParkShare.</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-none mb-8">Welcome<br />back.</h1>
 
           {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-xl text-sm">{error}</div>}
 
@@ -175,7 +166,7 @@ export default function Login() {
         <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 70% 30%, rgba(200,255,61,0.18), transparent 60%)' }} />
         <div className="relative">
           <div className="font-mono text-xs text-lime tracking-widest mb-3">● TODAY IN GULSHAN</div>
-          <h2 className="text-4xl font-bold leading-tight tracking-tight">14 fresh spots<br />under $4/hr.</h2>
+          <h2 className="text-4xl font-bold leading-tight tracking-tight">14 fresh spots<br />under ৳400/hr.</h2>
         </div>
         <div className="relative mt-auto p-5 bg-white/6 rounded-2xl border border-white/8">
           <p className="text-sm text-paper/70 leading-relaxed italic">

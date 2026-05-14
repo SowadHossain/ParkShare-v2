@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 const stats = [
   ['412', 'active spots'],
-  ['$2.40', 'avg / hour'],
+  ['৳280', 'avg / hour'],
   ['4.8 ★', 'host rating'],
 ]
 
@@ -13,7 +13,7 @@ const steps = [
 ]
 
 const hostStats = [
-  ['~$160', '/mo avg'],
+  ['~৳18,000', '/mo avg'],
   ['9 AM – 5 PM', 'typical window'],
   ['~14', 'bookings/mo'],
   ['3–5 min', 'to list'],
@@ -61,7 +61,7 @@ export default function Home() {
             <path d="M-20 220 Q200 200 320 280 T620 320" stroke="rgba(246,244,238,0.4)" strokeWidth="2" strokeDasharray="10 14" fill="none" />
             <path d="M180 -20 Q220 200 280 360 T380 540" stroke="rgba(246,244,238,0.18)" strokeWidth="28" fill="none" />
           </svg>
-          {[{ l: 110, t: 130, p: '$3' }, { l: 290, t: 80, p: '$4' }, { l: 230, t: 250, p: '$2', hi: true }, { l: 410, t: 190, p: '$5' }, { l: 380, t: 360, p: '$3' }, { l: 150, t: 400, p: '$2' }].map((pin, i) => (
+          {[{ l: 110, t: 130, p: '৳300' }, { l: 290, t: 80, p: '৳400' }, { l: 230, t: 250, p: '৳200', hi: true }, { l: 410, t: 190, p: '৳500' }, { l: 380, t: 360, p: '৳300' }, { l: 150, t: 400, p: '৳200' }].map((pin, i) => (
             <div key={i} style={{ position: 'absolute', left: pin.l, top: pin.t }} className={`px-3 py-1.5 rounded-full text-sm font-mono font-bold shadow-lg ${pin.hi ? 'bg-lime text-ink ring-2 ring-ink' : 'bg-paper text-ink'}`}>
               {pin.p}
             </div>
@@ -76,7 +76,7 @@ export default function Home() {
                 <div className="text-xs text-muted mt-0.5">★ 4.9 · 230m away</div>
               </div>
               <div className="text-right">
-                <div className="font-mono text-lg font-bold">$3</div>
+                <div className="font-mono text-lg font-bold">৳300</div>
                 <div className="text-[10px] text-muted">/hr</div>
               </div>
             </div>
