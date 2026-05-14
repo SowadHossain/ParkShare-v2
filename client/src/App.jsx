@@ -10,6 +10,7 @@ import Register from './portals/Public/pages/Register.jsx'
 import ForgotPassword from './portals/Public/pages/ForgotPassword.jsx'
 import AuthCallback from './portals/Public/pages/AuthCallback.jsx'
 import NotFound from './portals/Public/pages/NotFound.jsx'
+import KycComplete from './portals/Public/pages/KycComplete.jsx'
 
 // Driver
 import DriverLayout from './portals/Driver/DriverLayout.jsx'
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
       { path: '/register', element: <Register /> },
       { path: '/forgot-password', element: <ForgotPassword /> },
       { path: '/auth/callback', element: <AuthCallback /> },
+      { path: '/kyc-complete', element: <KycComplete /> },
     ],
   },
 

@@ -33,7 +33,7 @@ passport.use(
 
         const { data: created, error } = await supabase
           .from('users')
-          .insert({ name, email, google_id: googleId, role: 'driver', onboarded: false })
+          .insert({ name, email, google_id: googleId, role: 'driver', onboarded: false, kyc_status: 'pending' })
           .select()
           .single()
         if (error) return done(error)

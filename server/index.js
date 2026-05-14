@@ -173,6 +173,54 @@ app.post('/api/auth/onboarded', auth, async (req, res) => {
   }
 })
 
+// POST /api/auth/complete-kyc — for Google OAuth users who skipped KYC
+app.post('/api/auth/complete-kyc', auth, async (req, res) => {
+  try {
+    const { nid, license_plate, role } = req.body
+    const safeRole = role === 'host' ? 'host' : 'driver'
+
+    if (!nid) return res.status(400).json({ message: 'NID number is required' })
+
+    const { data: nidRows } = await supabase
+      .from('kyc_whitelist')
+      .select('id')
+      .eq('type', 'nid')
+      .ilike('value', nid)
+      .limit(1)
+    if (!nidRows?.length) return res.status(403).json({ message: 'NID not found in our approved database. Contact support.' })
+    const nidEntryId = nidRows[0].id
+
+    if (safeRole === 'driver') {
+      if (!license_plate) return res.status(400).json({ message: 'License plate is required for drivers' })
+      const { data: plateRows } = await supabase
+        .from('kyc_whitelist')
+        .select('id')
+        .eq('type', 'license_plate')
+        .ilike('value', license_plate)
+        .or(`nid_id.eq.${nidEntryId},nid_id.is.null`)
+        .limit(1)
+      if (!plateRows?.length) return res.status(403).json({ message: 'License plate is not registered under this NID. Contact support.' })
+    }
+
+    const updateData = { nid, kyc_status: 'approved', role: safeRole }
+    if (safeRole === 'driver') updateData.license_plate = license_plate.toUpperCase()
+
+    const { data: updated, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.user.id)
+      .select()
+      .single()
+    if (error) throw error
+
+    const { password_hash, ...safeUser } = updated
+    res.json({ user: safeUser })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // Google OAuth
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }))
 
