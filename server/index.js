@@ -868,6 +868,26 @@ app.post('/api/admin/kyc-requests/:id/reject', auth, requireRole('admin'), async
   }
 })
 
+app.post('/api/admin/kyc-requests/:id/request-resubmit', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const { reason } = req.body
+    const user = await User.findById(req.params.id)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+    if (!['pending', 'resubmit_requested'].includes(user.kyc_status)) {
+      return res.status(400).json({ message: 'Can only request resubmit for pending or previously requested submissions' })
+    }
+
+    await supabase.from('users').update({ kyc_status: 'resubmit_requested' }).eq('id', user.id)
+    await createNotification(user.id, 'kyc_resubmit_requested',
+      reason ? `We need more info: ${reason}` : 'Please resubmit your KYC with the correct details.',
+      '/kyc-pending')
+    res.json({ message: 'Resubmit requested' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // ══════════════════════════════════════════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════════════════════════════════════════

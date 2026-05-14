@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../../context/AuthContext.jsx'
 
 const stats = [
   ['412', 'active spots'],
@@ -20,6 +21,14 @@ const hostStats = [
 ]
 
 export default function Home() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
+
   return (
     <div className="bg-ink text-paper min-h-screen">
       {/* Hero */}
@@ -35,12 +44,25 @@ export default function Home() {
             ParkShare is a residential driveway marketplace. Find unused space near you, book in 30 seconds, and pay only for the time you need.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 items-center">
-            <Link to="/register?role=driver" className="px-6 py-3.5 bg-lime text-ink rounded-full font-semibold hover:opacity-90 transition-opacity">
-              Find parking →
-            </Link>
-            <Link to="/register?role=host" className="px-6 py-3.5 border border-paper/20 text-paper rounded-full font-medium hover:border-paper/40 transition-colors">
-              I have a driveway
-            </Link>
+            {user ? (
+              <>
+                <button onClick={() => navigate(`/${user.role}/dashboard`)} className="px-6 py-3.5 bg-lime text-ink rounded-full font-semibold hover:opacity-90 transition-opacity">
+                  Go to dashboard →
+                </button>
+                <button onClick={handleLogout} className="px-6 py-3.5 border border-paper/20 text-paper rounded-full font-medium hover:border-paper/40 transition-colors">
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/register?role=driver" className="px-6 py-3.5 bg-lime text-ink rounded-full font-semibold hover:opacity-90 transition-opacity">
+                  Find parking →
+                </Link>
+                <Link to="/register?role=host" className="px-6 py-3.5 border border-paper/20 text-paper rounded-full font-medium hover:border-paper/40 transition-colors">
+                  I have a driveway
+                </Link>
+              </>
+            )}
           </div>
           <div className="mt-10 flex gap-10">
             {stats.map(([v, l]) => (
@@ -106,9 +128,15 @@ export default function Home() {
           <div className="font-mono text-xs tracking-widest mb-3">● FOR HOSTS</div>
           <h2 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight">Make your driveway<br />pay rent too.</h2>
           <div className="mt-6 flex flex-wrap gap-4 items-center">
-            <Link to="/register?role=host" className="px-6 py-3.5 bg-ink text-paper rounded-full font-semibold hover:bg-ink/90 transition-colors">
-              List your driveway →
-            </Link>
+            {user ? (
+              <button onClick={() => navigate(`/host/${user.role === 'host' ? 'dashboard' : 'welcome'}`)} className="px-6 py-3.5 bg-ink text-paper rounded-full font-semibold hover:bg-ink/90 transition-colors">
+                {user.role === 'host' ? 'Go to host dashboard →' : 'Switch to host →'}
+              </button>
+            ) : (
+              <Link to="/register?role=host" className="px-6 py-3.5 bg-ink text-paper rounded-full font-semibold hover:bg-ink/90 transition-colors">
+                List your driveway →
+              </Link>
+            )}
             <span className="text-sm font-medium opacity-70">Free to list. 15% platform fee.</span>
           </div>
         </div>

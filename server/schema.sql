@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
   role        VARCHAR(20)   NOT NULL DEFAULT 'driver' CHECK (role IN ('driver','host','admin')),
   google_id   VARCHAR(120)  UNIQUE,
   onboarded   BOOLEAN       NOT NULL DEFAULT FALSE,
+  nid         VARCHAR(30),
+  license_plate VARCHAR(30),
+  kyc_status  VARCHAR(20)   DEFAULT 'pending' CHECK (kyc_status IN ('pending','approved','rejected','resubmit_requested')),
   created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 

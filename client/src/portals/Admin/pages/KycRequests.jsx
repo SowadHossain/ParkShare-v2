@@ -7,6 +7,7 @@ export default function KycRequests() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [rejectTarget, setRejectTarget] = useState(null)
+  const [resubmitTarget, setResubmitTarget] = useState(null)
   const [reason, setReason] = useState('')
   const [acting, setActing] = useState(null)
   const [error, setError] = useState('')
@@ -47,6 +48,22 @@ export default function KycRequests() {
       setReason('')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reject')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function requestResubmit() {
+    if (!resubmitTarget) return
+    setError('')
+    setActing(resubmitTarget.id)
+    try {
+      await axios.post(`${API}/admin/kyc-requests/${resubmitTarget.id}/request-resubmit`, { reason })
+      setRequests(r => r.filter(u => u.id !== resubmitTarget.id))
+      setResubmitTarget(null)
+      setReason('')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to request resubmit')
     } finally {
       setActing(null)
     }
@@ -104,12 +121,18 @@ export default function KycRequests() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
                   <button
                     onClick={() => approve(u.id)}
                     disabled={acting === u.id}
                     className="px-4 py-2 bg-lime text-ink rounded-xl text-sm font-semibold hover:bg-lime/80 disabled:opacity-50 transition-colors">
                     Approve
+                  </button>
+                  <button
+                    onClick={() => { setResubmitTarget(u); setReason('') }}
+                    disabled={acting === u.id}
+                    className="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-xl text-sm font-semibold hover:bg-yellow-100 disabled:opacity-50 transition-colors">
+                    Resubmit
                   </button>
                   <button
                     onClick={() => { setRejectTarget(u); setReason('') }}
@@ -121,6 +144,33 @@ export default function KycRequests() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Request Resubmit modal */}
+      {resubmitTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="font-bold text-base mb-1">Request Resubmission</h2>
+            <p className="text-sm text-muted mb-4">Ask <span className="font-semibold text-ink">{resubmitTarget.name}</span> to resubmit. Optionally explain what needs to be corrected.</p>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2.5 border border-black/10 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ink/20 mb-4"
+              placeholder="What needs to be corrected? (optional)..."
+            />
+            <div className="flex gap-2">
+              <button onClick={requestResubmit} disabled={acting === resubmitTarget.id}
+                className="flex-1 py-2.5 bg-yellow-600 text-white rounded-xl text-sm font-semibold hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                {acting === resubmitTarget.id ? 'Requesting…' : 'Request resubmit'}
+              </button>
+              <button onClick={() => setResubmitTarget(null)}
+                className="flex-1 py-2.5 bg-paper2 text-ink rounded-xl text-sm font-semibold hover:bg-paper2/70 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
